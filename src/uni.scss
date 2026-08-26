@@ -1,0 +1,26 @@
+/**
+ * 每日养生 (Daily Wellness) 全局 Sass 主题变量与通用规范
+ */
+
+/* 禅意与自然色彩系统 */
+$dw-primary-color: #2e4a3b;      // 竹青/松柏绿 主色
+$dw-primary-light: #e8f0eb;      // 淡青微调底色
+$dw-secondary-color: #c89b65;    // 暖琥珀/沉香木
+$dw-bg-color: #f7f5f0;           // 宣纸质感暖底色
+$dw-card-bg: #ffffff;            // 卡片背景
+
+/* 文本颜色 */
+$dw-text-main: #222222;          // 主标题/主要文字
+$dw-text-regular: #555555;       // 正文文字
+$dw-text-muted: #888888;         // 辅助/次要文字
+
+/* 边框与阴影 */
+$dw-border-color: #e6e2d8;
+$dw-shadow-sm: 0 2px 8px rgba(46, 74, 59, 0.06);
+$dw-shadow-md: 0 4px 16px rgba(46, 74, 59, 0.1);
+
+/* 圆角规范 */
+$dw-radius-sm: 8rpx;
+$dw-radius-md: 16rpx;
+$dw-radius-lg: 24rpx;
+$dw-radius-round: 999rpx;

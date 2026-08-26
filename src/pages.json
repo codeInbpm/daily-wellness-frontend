@@ -1,0 +1,174 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^login-modal": "@/components/login-modal/login-modal.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "每日养生",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/habit/habit",
+      "style": {
+        "navigationBarTitleText": "我的节律 - 习惯管理",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/calendar/calendar",
+      "style": {
+        "navigationBarTitleText": "打卡日历",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/knowledge/knowledge",
+      "style": {
+        "navigationBarTitleText": "养生志 - 节气与美文",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/profile/profile",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/vip/vip",
+      "style": {
+        "navigationBarTitleText": "了解会员计划",
+        "navigationBarBackgroundColor": "#1E4D3B",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/constitution/constitution",
+      "style": {
+        "navigationBarTitleText": "简单体质自测",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/ai-chat/ai-chat",
+      "style": {
+        "navigationBarTitleText": "🤖 养生 AI 智伴",
+        "navigationBarBackgroundColor": "#1E4D3B",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/herbal-food/herbal-food",
+      "style": {
+        "navigationBarTitleText": "🍲 食材药膳百科",
+        "navigationBarBackgroundColor": "#1E4D3B",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/shop/shop",
+      "style": {
+        "navigationBarTitleText": "🛍️ 时令养生商城",
+        "navigationBarBackgroundColor": "#1E4D3B",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/consult/consult",
+      "style": {
+        "navigationBarTitleText": "🤖 AI 养生智伴 / 专属答疑",
+        "navigationBarBackgroundColor": "#1E4D3B",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/article/detail",
+      "style": {
+        "navigationBarTitleText": "📖 养生科普与辟谣",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/community/index",
+      "style": {
+        "navigationBarTitleText": "🍃 养生社区 / 打卡圈",
+        "navigationBarBackgroundColor": "#1E4D3B",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/community/publish",
+      "style": {
+        "navigationBarTitleText": "✍️ 发布动态",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/community/detail",
+      "style": {
+        "navigationBarTitleText": "💬 动态交流",
+        "navigationBarBackgroundColor": "#F7F5F0",
+        "navigationBarTextStyle": "black"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "每日养生",
+    "navigationBarBackgroundColor": "#F7F5F0",
+    "backgroundColor": "#F7F5F0"
+  },
+  "tabBar": {
+    "color": "#7A8B82",
+    "selectedColor": "#2E6D56",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "今日",
+        "iconPath": "static/tabbar/today.png",
+        "selectedIconPath": "static/tabbar/today-active.png"
+      },
+      {
+        "pagePath": "pages/habit/habit",
+        "text": "习惯",
+        "iconPath": "static/tabbar/habit.png",
+        "selectedIconPath": "static/tabbar/habit-active.png"
+      },
+      {
+        "pagePath": "pages/calendar/calendar",
+        "text": "日历",
+        "iconPath": "static/tabbar/calendar.png",
+        "selectedIconPath": "static/tabbar/calendar-active.png"
+      },
+      {
+        "pagePath": "pages/knowledge/knowledge",
+        "text": "养生志",
+        "iconPath": "static/tabbar/knowledge.png",
+        "selectedIconPath": "static/tabbar/knowledge-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "static/tabbar/profile.png",
+        "selectedIconPath": "static/tabbar/profile-active.png"
+      }
+    ]
+  }
+}
