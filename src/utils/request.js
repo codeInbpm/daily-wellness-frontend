@@ -45,7 +45,8 @@ export function request(url, options = {}) {
           resolve({ code: 401, msg: '未登录或登录已过期' })
           return
         }
-        if (res.statusCode === 200 && res.data) {
+        if (res.data) {
+          // 直接返回真实的后端响应（包括 200 成功与 500/400 失败），绝不把后端的逻辑报错当做 Mock 覆盖
           resolve(res.data)
         } else {
           resolve(getMock(url, options))
@@ -405,6 +406,43 @@ function getMock(url, options) {
         thing2: '早睡早起，午休补充精力',
         thing3: '宜吃百合银耳，少食辛辣'
       }
+    }
+  }
+
+  if (url.includes('/auth/update-settings')) {
+    const { remindTime, themeCode } = options.data || {}
+    if (remindTime) mockUserSettings.remindTime = remindTime
+    if (themeCode) mockUserSettings.themeCode = themeCode
+    return {
+      code: 200,
+      msg: '偏好设置更新成功',
+      data: mockUserSettings
+    }
+  }
+
+  if (url.includes('/auth/send-sms')) {
+    return {
+      code: 200,
+      msg: '验证码已发送至您的手机，测试体验验证码为 123456',
+      data: '123456'
+    }
+  }
+
+  if (url.includes('/auth/bind-phone')) {
+    const { phone } = options.data || {}
+    mockUserSettings.phone = phone || '15888888888'
+    return {
+      code: 200,
+      msg: '手机号绑定成功！',
+      data: mockUserSettings
+    }
+  }
+
+  if (url.includes('/auth/wx-login')) {
+    return {
+      code: 500,
+      msg: '登录失败：请先绑定手机号',
+      data: null
     }
   }
 

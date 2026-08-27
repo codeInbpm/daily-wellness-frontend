@@ -81,13 +81,45 @@
 
       <view v-else class="empty-state">
         <text class="empty-text">该日期暂无打卡记录。顺其自然，今天也是值得照顾的一天。</text>
+        <!-- 如果是过去的 1~2 天，引导 VIP 补打卡 -->
+        <view v-if="canMakeUp" class="makeup-guide-box" @click="openMakeUpModal">
+          <text class="makeup-icon">👑</text>
+          <text class="makeup-text">VIP 特权：点击补打 {{ selectedDateStr }} 的记录，保护连续成就</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- VIP 补打卡选择弹窗 -->
+    <view v-if="showMakeUpModal" class="modal-mask" @click="showMakeUpModal = false">
+      <view class="modal-card" @click.stop>
+        <view class="modal-title">VIP 专属补打卡 · {{ selectedDateStr }}</view>
+        <view class="modal-sub">选择您要补打卡的养生习惯：</view>
+        
+        <view class="makeup-habit-list">
+          <view 
+            v-for="h in userHabits" 
+            :key="h.habitId" 
+            class="makeup-habit-item"
+            :class="{ selected: selectedHabitId === h.habitId }"
+            @click="selectedHabitId = h.habitId"
+          >
+            <text class="m-name">{{ h.name }}</text>
+            <text class="m-tag">{{ h.category }}</text>
+          </view>
+        </view>
+
+        <view class="modal-actions">
+          <button class="btn-cancel" @click="showMakeUpModal = false">取消</button>
+          <button class="btn-confirm" @click="submitMakeUp">完成补打卡</button>
+        </view>
       </view>
     </view>
   </view>
 </template>
 
 <script>
-import { getCalendarRecordsApi, getDayCheckInDetailApi } from '../../api/habit.js'
+import { getCalendarRecordsApi, getDayCheckInDetailApi, getTodayHabitsApi, makeUpCheckInApi } from '../../api/habit.js'
+import { getUserInfo, checkLogin } from '../../utils/auth.js'
 
 export default {
   data() {
@@ -99,7 +131,22 @@ export default {
       selectedFullDate: '2026-08-25',
       selectedDateStr: '8月25日',
       calendarDays: [],
-      dayDetailList: []
+      dayDetailList: [],
+      showMakeUpModal: false,
+      userHabits: [],
+      selectedHabitId: null
+    }
+  },
+  computed: {
+    canMakeUp() {
+      if (!this.selectedFullDate) return false
+      const target = new Date(this.selectedFullDate)
+      const now = new Date()
+      // 清除时分秒
+      target.setHours(0,0,0,0)
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const diffDays = Math.round((today - target) / (1000 * 60 * 60 * 24))
+      return diffDays >= 1 && diffDays <= 2
     }
   },
   mounted() {
@@ -112,11 +159,68 @@ export default {
     this.selectedDateStr = `${this.currentMonth}月${now.getDate()}日`
     
     this.loadMonthData()
+    this.loadUserHabits()
   },
   methods: {
+    async loadUserHabits() {
+      const u = getUserInfo()
+      const userId = u ? u.id : 1
+      const res = await getTodayHabitsApi(userId)
+      if (res && res.data && res.data.habits) {
+        this.userHabits = res.data.habits
+        if (this.userHabits.length > 0) {
+          this.selectedHabitId = this.userHabits[0].habitId
+        }
+      }
+    },
+    async openMakeUpModal() {
+      if (!checkLogin()) return
+      const u = getUserInfo()
+      if (!u || !u.isVip) {
+        uni.showModal({
+          title: 'VIP 专属补打卡',
+          content: '补打卡权益为 VIP 会员专享，可保护连续成就不中断。是否去了解开通 VIP？',
+          confirmText: '去开通',
+          success: (res) => {
+            if (res.confirm) {
+              uni.navigateTo({ url: '/pages/vip/vip' })
+            }
+          }
+        })
+        return
+      }
+      this.showMakeUpModal = true
+    },
+    async submitMakeUp() {
+      if (!this.selectedHabitId) {
+        uni.showToast({ title: '请选择要补打卡的习惯', icon: 'none' })
+        return
+      }
+
+      const u = getUserInfo()
+      const userId = u ? u.id : 1
+
+      uni.showLoading({ title: '提交补打卡...' })
+      try {
+        const res = await makeUpCheckInApi(userId, this.selectedHabitId, this.selectedFullDate, '补打卡成功记录')
+        uni.hideLoading()
+        if (res && res.code === 200) {
+          uni.showToast({ title: '🎉 补打卡成功！连续天数已保留', icon: 'success' })
+          this.showMakeUpModal = false
+          this.loadMonthData()
+        } else {
+          uni.showToast({ title: res?.msg || '补打卡失败', icon: 'none' })
+        }
+      } catch (e) {
+        uni.hideLoading()
+        uni.showToast({ title: '请求失败', icon: 'none' })
+      }
+    },
     async loadMonthData() {
       const monthStr = `${this.currentYear}-${this.currentMonth < 10 ? '0' + this.currentMonth : this.currentMonth}`
-      const res = await getCalendarRecordsApi(1, monthStr)
+      const u = getUserInfo()
+      const userId = u ? u.id : 1
+      const res = await getCalendarRecordsApi(userId, monthStr)
       if (res && res.data) {
         this.checkedDays = res.data.map(d => {
           const parts = d.split('-')
@@ -179,7 +283,9 @@ export default {
       this.loadDayDetail(day.fullDate)
     },
     async loadDayDetail(fullDate) {
-      const res = await getDayCheckInDetailApi(1, fullDate)
+      const u = getUserInfo()
+      const userId = u ? u.id : 1
+      const res = await getDayCheckInDetailApi(userId, fullDate)
       if (res && res.data) {
         this.dayDetailList = res.data
       } else {
@@ -434,5 +540,121 @@ export default {
 .empty-text {
   font-size: 24rpx;
   color: #A3B1A9;
+}
+
+.makeup-guide-box {
+  margin-top: 20rpx;
+  background-color: #EBF3EF;
+  border: 1px dashed #2E6D56;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+}
+
+.makeup-icon {
+  font-size: 28rpx;
+}
+
+.makeup-text {
+  font-size: 24rpx;
+  color: #2E6D56;
+  font-weight: 600;
+}
+
+/* 补打卡 Modal */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 40rpx;
+}
+
+.modal-card {
+  width: 100%;
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 36rpx;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #2C3531;
+}
+
+.modal-sub {
+  font-size: 24rpx;
+  color: #7A8B82;
+  margin-top: 8rpx;
+  margin-bottom: 24rpx;
+}
+
+.makeup-habit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  max-height: 400rpx;
+  overflow-y: auto;
+}
+
+.makeup-habit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #FAF8F3;
+  padding: 20rpx 24rpx;
+  border-radius: 20rpx;
+  border: 2rpx solid transparent;
+}
+
+.makeup-habit-item.selected {
+  border-color: #2E6D56;
+  background-color: #EBF3EF;
+}
+
+.m-name {
+  font-size: 28rpx;
+  color: #2C3531;
+  font-weight: 600;
+}
+
+.m-tag {
+  font-size: 22rpx;
+  color: #2E6D56;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+
+.btn-cancel {
+  flex: 1;
+  background: #F1F5F9;
+  color: #64748B;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  border: none;
+}
+
+.btn-confirm {
+  flex: 1;
+  background: #2E6D56;
+  color: #FFFFFF;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  border: none;
 }
 </style>

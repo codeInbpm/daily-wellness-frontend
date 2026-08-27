@@ -125,12 +125,7 @@
 <script>
 import { getTodayHabitsApi, checkInApi, addHabitApi, deleteHabitApi } from '../../api/habit.js'
 import { checkLogin } from '../../utils/auth.js'
-import LoginModal from '../../components/login-modal/login-modal.vue'
-
 export default {
-  components: {
-    'login-modal': LoginModal
-  },
   data() {
     return {
       habits: [],

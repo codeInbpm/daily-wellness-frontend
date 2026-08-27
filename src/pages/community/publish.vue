@@ -55,12 +55,7 @@
 import { createPostApi } from '../../api/community.js'
 import { uploadFileApi } from '../../utils/request.js'
 import { checkLogin, getUserInfo } from '../../utils/auth.js'
-import LoginModal from '../../components/login-modal/login-modal.vue'
-
 export default {
-  components: {
-    'login-modal': LoginModal
-  },
   data() {
     return {
       content: '',

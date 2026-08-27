@@ -186,7 +186,10 @@
       <view class="poster-modal-content" @click.stop>
         <view class="poster-card-body">
           <view class="poster-top-bar">
-            <text class="poster-app-title">每日养生 · A Daily Ritual</text>
+            <view class="poster-app-info">
+              <text class="poster-app-title">每日养生 · A Daily Ritual</text>
+              <text class="poster-vip-tag" v-if="isVipUser">👑 VIP 尊享成就</text>
+            </view>
             <text class="poster-date">{{ currentDateStr }}</text>
           </view>
           
@@ -225,6 +228,8 @@
       </view>
     </view>
 
+    <!-- 全局登录模态框 -->
+    <login-modal />
   </view>
 </template>
 
@@ -232,6 +237,7 @@
 import { getTodayHabitsApi, checkInApi } from '../../api/habit.js'
 import { uploadFileApi, deleteFileApi } from '../../api/common.js'
 import { getCurrentOrganClockApi } from '../../api/content.js'
+import { getUserInfo } from '../../utils/auth.js'
 
 export default {
   data() {
@@ -258,6 +264,12 @@ export default {
         advice: '小肠分清浊，补充水分。小肠吸收养分，宜多喝温水促进吸收。',
         recommendHabit: '喝够8杯水'
       }
+    }
+  },
+  computed: {
+    isVipUser() {
+      const u = getUserInfo()
+      return u && (u.isVip || (u.vipExpireTime && new Date(u.vipExpireTime) > new Date()))
     }
   },
   onShow() {
@@ -300,7 +312,9 @@ export default {
       })
     },
     async loadTodayData() {
-      const res = await getTodayHabitsApi(1)
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      const res = await getTodayHabitsApi(userId)
       if (res && res.data) {
         this.habits = res.data.habits || []
         this.completedCount = res.data.completedCount || 0
@@ -316,6 +330,8 @@ export default {
       }
     },
     async toggleCheckIn(item) {
+      if (!checkLogin()) return
+
       item.checked = !item.checked
       if (item.checked) {
         this.completedCount++
@@ -329,7 +345,9 @@ export default {
       const streaks = this.habits.map(h => h.currentStreak || 0)
       this.maxStreak = streaks.length > 0 ? Math.max(...streaks) : 0
 
-      const res = await checkInApi(1, item.habitId)
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      const res = await checkInApi(userId, item.habitId)
       if (res && res.data && res.data.currentStreak !== undefined) {
         item.currentStreak = res.data.currentStreak
       }
@@ -392,9 +410,11 @@ export default {
         return
       }
 
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
       uni.showLoading({ title: '正在提交打卡...' })
       const res = await checkInApi(
-        1, 
+        userId, 
         this.activeMediaHabit.habitId, 
         this.inputRemark, 
         this.uploadedMediaUrl, 
@@ -1050,10 +1070,25 @@ export default {
   padding-bottom: 24rpx;
 }
 
+.poster-app-info {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
 .poster-app-title {
   font-size: 24rpx;
   letter-spacing: 2rpx;
   opacity: 0.9;
+}
+
+.poster-vip-tag {
+  background: #FFD700;
+  color: #4A3A2C;
+  font-size: 18rpx;
+  font-weight: bold;
+  padding: 2rpx 10rpx;
+  border-radius: 10rpx;
 }
 
 .poster-date {

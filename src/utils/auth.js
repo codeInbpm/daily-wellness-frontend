@@ -22,11 +22,20 @@ export function getUserInfo() {
 }
 
 /**
- * 是否已经登录
+ * 是否已经登录 (微信授权成功)
  */
 export function isLoggedIn() {
   const token = getToken()
-  return !!token
+  const user = getUserInfo()
+  return !!(token && user)
+}
+
+/**
+ * 是否已绑定手机号
+ */
+export function hasBoundPhone() {
+  const user = getUserInfo()
+  return !!(user && user.phone && user.phone.trim().length > 0)
 }
 
 /**

@@ -20,6 +20,16 @@ export function checkInApi(userId, habitId, remark = '', mediaUrl = '', mediaTyp
 }
 
 /**
+ * VIP 补打卡 (支持补打前 1~2 天)
+ */
+export function makeUpCheckInApi(userId, habitId, date, remark = '', mediaUrl = '', mediaType = 'none') {
+  return request('/habit/make-up-check-in', {
+    method: 'POST',
+    data: { userId, habitId, date, remark, mediaUrl, mediaType }
+  })
+}
+
+/**
  * 获取日历记录集合
  */
 export function getCalendarRecordsApi(userId = 1, month) {

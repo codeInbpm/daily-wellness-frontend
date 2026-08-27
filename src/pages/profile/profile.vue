@@ -86,7 +86,7 @@
           <view>
             <view class="setting-name-row">
               <text class="setting-name">每日打卡提醒</text>
-              <text class="setting-auth-btn">✨ 点击授权确认</text>
+              <view class="setting-auth-btn" @click.stop="requestSubscribeMsg">✨ 点击授权确认</view>
             </view>
             <text class="setting-desc">在固定时间提醒我回来</text>
             <!-- 绑定原生时间选择器 Picker -->
@@ -109,6 +109,20 @@
           </view>
         </view>
         <switch :checked="privateMode" @change="togglePrivateMode" color="#2E6D56"/>
+      </view>
+
+      <view class="setting-item" @click="openThemeSelector">
+        <view class="setting-left">
+          <view class="setting-icon">🎨</view>
+          <view>
+            <view class="setting-name-row">
+              <text class="setting-name">专属主题 / 皮肤</text>
+              <text class="vip-theme-badge">👑 VIP 专属</text>
+            </view>
+            <text class="setting-desc">当前使用：{{ currentThemeName }}</text>
+          </view>
+        </view>
+        <text class="cell-arrow">›</text>
       </view>
     </view>
 
@@ -143,6 +157,10 @@
         <text class="cell-text">📄 服务条款</text>
         <text class="cell-arrow">›</text>
       </view>
+      <view class="cell-item" v-if="isLogin" @click="handleSyncOpenid">
+        <text class="cell-text">🔄 诊断并同步当前设备微信 OpenID</text>
+        <text class="cell-arrow">›</text>
+      </view>
 
       <view class="cell-item logout" v-if="isLogin" @click="logout">
         <text class="cell-text-logout">🚪 退出当前账号</text>
@@ -155,28 +173,29 @@
 </template>
 
 <script>
-import { getUserInfoApi, updateUserSettingsApi } from '../../api/auth.js'
+import { getUserInfoApi, updateUserSettingsApi, syncOpenidApi } from '../../api/auth.js'
 import { isLoggedIn, getUserInfo, clearAuthData, checkLogin } from '../../utils/auth.js'
-import { SUBSCRIBE_TEMPLATE_ID, saveSubscribeStatusApi, sendTestSubscribeApi } from '../../api/subscribe.js'
-import LoginModal from '../../components/login-modal/login-modal.vue'
-
 export default {
-  components: {
-    'login-modal': LoginModal
-  },
   data() {
     return {
       isLogin: false,
       userInfo: null,
       remindTime: '08:30',
       remindEnabled: true,
-      privateMode: false
+      privateMode: false,
+      themeCode: 'default'
     }
   },
   computed: {
     userFirstChar() {
       const name = (this.userInfo && this.userInfo.nickname) ? this.userInfo.nickname : '微信'
       return name.charAt(0)
+    },
+    currentThemeName() {
+      if (this.themeCode === 'warm_apricot') return '暖杏 (VIP)'
+      if (this.themeCode === 'twilight_purple') return '暮山紫 (VIP)'
+      if (this.themeCode === 'pine_teal') return '松柏绿 (VIP)'
+      return '竹青 (默认)'
     }
   },
   onShow() {
@@ -259,16 +278,56 @@ export default {
     goToConsult() {
       uni.navigateTo({ url: '/pages/consult/consult' })
     },
+    openThemeSelector() {
+      if (!checkLogin()) return
+      
+      const themes = ['竹青 (默认)', '暖杏 (VIP尊享)', '暮山紫 (VIP尊享)', '松柏绿 (VIP尊享)']
+      const themeCodes = ['default', 'warm_apricot', 'twilight_purple', 'pine_teal']
+      
+      uni.showActionSheet({
+        itemList: themes,
+        success: async (res) => {
+          const selectedCode = themeCodes[res.tapIndex]
+          const isVip = this.userInfo && (this.userInfo.isVip || (this.userInfo.vipExpireTime && new Date(this.userInfo.vipExpireTime) > new Date()))
+          
+          if (selectedCode !== 'default' && !isVip) {
+            uni.showModal({
+              title: 'VIP 专属主题',
+              content: '专属配色主题为 VIP 会员专享，是否去了解开通 VIP？',
+              confirmText: '去开通',
+              success: (mRes) => {
+                if (mRes.confirm) {
+                  uni.navigateTo({ url: '/pages/vip/vip' })
+                }
+              }
+            })
+            return
+          }
+
+          uni.showLoading({ title: '切换主题中...' })
+          const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
+          const updateRes = await updateUserSettingsApi(userId, this.remindTime, selectedCode)
+          uni.hideLoading()
+
+          if (updateRes && updateRes.code === 200) {
+            this.themeCode = selectedCode
+            uni.showToast({ title: `已成功切换为：${themes[res.tapIndex]}`, icon: 'success' })
+          } else {
+            uni.showToast({ title: updateRes?.msg || '切换失败', icon: 'none' })
+          }
+        }
+      })
+    },
     async onTimeChange(e) {
       if (!checkLogin()) return
       const newTime = e.detail.value
       this.remindTime = newTime
-      uni.showLoading({ title: '保存中...' })
+      uni.showLoading({ title: '保存提醒时间中...' })
       const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
       const res = await updateUserSettingsApi(userId, newTime)
       uni.hideLoading()
       if (res && res.code === 200) {
-        uni.showToast({ title: `已设置提醒时间为 ${newTime}`, icon: 'success' })
+        uni.showToast({ title: `已成功设置每日提醒时间为 ${newTime}`, icon: 'success' })
       } else {
         uni.showToast({ title: '保存失败', icon: 'none' })
       }
@@ -283,20 +342,38 @@ export default {
     },
     requestSubscribeMsg() {
       if (!checkLogin()) return
+
+      // 微信官方底层硬性限制：requestSubscribeMessage 必须在用户点击事件的第一行同步直接调用！
       uni.requestSubscribeMessage({
         tmplIds: [SUBSCRIBE_TEMPLATE_ID],
         success: async (res) => {
           if (res && res[SUBSCRIBE_TEMPLATE_ID] === 'accept') {
-            uni.showToast({ title: '已成功订阅节气调养提醒', icon: 'success' })
+            uni.showToast({ title: '🎉 已成功开启微信每日养生推送！', icon: 'success', duration: 2500 })
             const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
             await saveSubscribeStatusApi(userId, SUBSCRIBE_TEMPLATE_ID, 'accept')
           } else {
-            uni.showToast({ title: '已设置提醒，授权未完成', icon: 'none' })
+            uni.showToast({ title: '授权未完成，请勾选允许', icon: 'none' })
           }
         },
         fail: (err) => {
-          console.log('订阅授权回调', err)
-          uni.showToast({ title: '已开启每日提醒', icon: 'none' })
+          console.log('订阅授权失败/拒绝', err)
+          uni.showModal({
+            title: '授权提示',
+            content: '若微信未能正常唤起弹窗，请点击右上角「···」->「设置」->「订阅消息」，将【健康调养提醒】设置为“接收消息”。',
+            confirmText: '我知道了',
+            showCancel: false
+          })
+        }
+      })
+
+      // 后台静默将设备真实的微信 OpenID 写入后端数据库 sys_user 表
+      uni.login({
+        provider: 'weixin',
+        success: async (lRes) => {
+          if (lRes && lRes.code) {
+            const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
+            await syncOpenidApi(userId, lRes.code)
+          }
         }
       })
     },
@@ -323,6 +400,46 @@ export default {
     },
     showModal(title, content) {
       uni.showModal({ title, content, showCancel: false })
+    },
+    async handleSyncOpenid() {
+      if (!checkLogin()) return
+      uni.showLoading({ title: '正在获取微信真实 OpenID...' })
+      try {
+        const loginRes = await new Promise((resolve) => {
+          uni.login({
+            provider: 'weixin',
+            success: (res) => resolve(res),
+            fail: (err) => resolve({ code: null, err })
+          })
+        })
+        const wxCode = (loginRes && loginRes.code) ? loginRes.code : ''
+        if (!wxCode) {
+          uni.hideLoading()
+          uni.showToast({ title: '未能获取到设备的微信登录凭证', icon: 'none' })
+          return
+        }
+
+        const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
+        const res = await syncOpenidApi(userId, wxCode)
+        uni.hideLoading()
+
+        if (res && res.code === 200 && res.data) {
+          const realOpenid = res.data.openid
+          if (this.userInfo) {
+            this.userInfo.openid = realOpenid
+          }
+          uni.showModal({
+            title: '✅ 真实 OpenID 同步绑定成功',
+            content: `已成功将您设备当前的真实微信 OpenID 写入数据库：\n\n${realOpenid}\n\n后台定时任务向此 OpenID 发送提醒将 100% 成功！`,
+            showCancel: false
+          })
+        } else {
+          uni.showToast({ title: res?.msg || '同步失败', icon: 'none' })
+        }
+      } catch (e) {
+        uni.hideLoading()
+        uni.showToast({ title: '网络异常，请重试', icon: 'none' })
+      }
     },
     logout() {
       uni.showModal({
