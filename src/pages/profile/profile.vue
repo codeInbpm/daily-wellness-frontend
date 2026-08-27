@@ -80,13 +80,12 @@
       <text class="pref-sub">偏好设置</text>
       <text class="pref-title">让每日养生更像你</text>
 
-      <view class="setting-item" @click="requestSubscribeMsg">
+      <view class="setting-item">
         <view class="setting-left">
           <view class="setting-icon">🔔</view>
           <view>
             <view class="setting-name-row">
               <text class="setting-name">每日打卡提醒</text>
-              <view class="setting-auth-btn" @click.stop="requestSubscribeMsg">✨ 点击授权确认</view>
             </view>
             <text class="setting-desc">在固定时间提醒我回来</text>
             <!-- 绑定原生时间选择器 Picker -->
@@ -175,7 +174,12 @@
 <script>
 import { getUserInfoApi, updateUserSettingsApi, syncOpenidApi } from '../../api/auth.js'
 import { isLoggedIn, getUserInfo, clearAuthData, checkLogin } from '../../utils/auth.js'
+import loginModal from '../../components/login-modal/login-modal.vue'
+
 export default {
+  components: {
+    loginModal
+  },
   data() {
     return {
       isLogin: false,
@@ -200,12 +204,10 @@ export default {
   },
   onShow() {
     this.refreshAuthState()
-    this.checkAndPromptSubscribe()
   },
   mounted() {
     uni.$on('user_auth_changed', () => {
       this.refreshAuthState()
-      this.checkAndPromptSubscribe()
     })
     uni.$on('habit_status_changed', () => {
       if (this.isLogin) this.loadProfileBackend()
@@ -335,7 +337,7 @@ export default {
     toggleRemind(e) {
       this.remindEnabled = e.detail.value
       if (this.remindEnabled) {
-        this.requestSubscribeMsg()
+        uni.showToast({ title: '每日打卡提醒已开启', icon: 'success' })
       } else {
         uni.showToast({ title: '已关闭提醒', icon: 'none' })
       }

@@ -110,6 +110,7 @@
 <script>
 import { wxLoginApi, sendSmsCodeApi, bindPhoneApi } from '../../api/auth.js'
 import { saveAuthData, getUserInfo } from '../../utils/auth.js'
+import { saveSubscribeStatusApi, SUBSCRIBE_TEMPLATE_ID } from '../../api/subscribe.js'
 
 export default {
   name: 'login-modal',
@@ -166,6 +167,7 @@ export default {
           if (user && user.phone && user.phone.trim().length > 0) {
             uni.showToast({ title: '🎉 登录成功！', icon: 'success' })
             this.visible = false
+            this.promptSubscribeMessage()
           } else {
             uni.showToast({ title: '微信登录成功，请完成手机号绑定', icon: 'none', duration: 2500 })
             this.loginMode = 'wx'
@@ -242,7 +244,6 @@ export default {
       uni.showLoading({ title: '正在授权微信登录并绑定手机号...' })
 
       try {
-        // 第一步：先调用微信原生 login 换取微信 code，确保拿到真实微信 openid
         const loginRes = await new Promise((resolve) => {
           uni.login({
             provider: 'weixin',
@@ -252,7 +253,6 @@ export default {
         })
         const wxCode = (loginRes && loginRes.code) ? loginRes.code : 'mock_wx_code_' + Date.now()
 
-        // 第二步：将微信 wxCode + 手机号 + 验证码发送至后端完成真实 openid 绑定与登录
         const res = await bindPhoneApi(wxCode, this.customPhone.trim(), this.smsCode.trim())
         uni.hideLoading()
 
@@ -277,35 +277,24 @@ export default {
       }
     },
     promptSubscribeMessage() {
-      const SUBSCRIBE_TEMPLATE_ID = 'K91dYUNJ6O195FwH596ocLpWpSAS29YM7TUvlCmQ0H8'
-      uni.showModal({
-        title: '🎉 手机号绑定成功！',
-        content: '为了每日准时为您推送微信节气养生调养提醒，是否立即开启微信通知授权？',
-        confirmText: '开启推送授权',
-        cancelText: '稍后再说',
-        success: (mRes) => {
-          if (mRes.confirm) {
-            // 在用户的点击手势回调中直接唤起微信官方原生订阅授权弹窗
-            uni.requestSubscribeMessage({
-              tmplIds: [SUBSCRIBE_TEMPLATE_ID],
-              success: (res) => {
-                if (res && res[SUBSCRIBE_TEMPLATE_ID] === 'accept') {
-                  uni.showToast({ title: '已成功开启节气通知！', icon: 'success' })
-                } else {
-                  uni.showToast({ title: '可在“我的”页面随时开启', icon: 'none' })
-                }
-              },
-              fail: () => {
-                uni.showToast({ title: '可在“我的”页面随时开启', icon: 'none' })
-              }
-            })
+      // 登录时一次性订阅授权提示
+      uni.requestSubscribeMessage({
+        tmplIds: [SUBSCRIBE_TEMPLATE_ID],
+        success: async (res) => {
+          if (res && res[SUBSCRIBE_TEMPLATE_ID] === 'accept') {
+            const user = getUserInfo()
+            const userId = user ? user.id : 1
+            await saveSubscribeStatusApi(userId, SUBSCRIBE_TEMPLATE_ID, 'accept')
+            uni.showToast({ title: '已成功开启节气通知！', icon: 'success' })
           }
+        },
+        fail: (err) => {
+          console.log('登录订阅授权取消/未允许', err)
         }
       })
     },
     async onGetPhoneNumber(e) {
       let dynamicPhone = ''
-      // 从微信原生的 getPhoneNumber 事件回调 detail 中提取解密的微信绑定的实际手机号
       if (e && e.detail) {
         if (e.detail.phoneNumber) {
           dynamicPhone = e.detail.phoneNumber
@@ -314,7 +303,6 @@ export default {
         }
       }
 
-      // 如果当前环境未能直接提取到微信微信绑定的手机号，自动为用户切换至手机号验证码模式
       if (!dynamicPhone) {
         uni.showToast({ title: '已为您切换至手机号验证码绑定模式', icon: 'none', duration: 2000 })
         this.loginMode = 'sms'
@@ -332,7 +320,6 @@ export default {
         })
 
         const code = (loginRes && loginRes.code) ? loginRes.code : 'mock_wx_code_' + Date.now()
-        // 将动态获取到的手机号传递给后端微信登录接口持久化保存到数据库 sys_user 表
         const res = await wxLoginApi(code, '微信用户', '', dynamicPhone)
         uni.hideLoading()
 
@@ -346,16 +333,19 @@ export default {
           saveAuthData(token, user)
           uni.showToast({ title: '绑定手机号登录成功！', icon: 'success' })
           this.visible = false
+          this.promptSubscribeMessage()
         } else {
           saveAuthData('mock_token_' + Date.now(), { id: 10, nickname: '微信用户', phone: dynamicPhone, isVip: 1 })
           uni.showToast({ title: '绑定手机号登录成功！', icon: 'success' })
           this.visible = false
+          this.promptSubscribeMessage()
         }
       } catch (err) {
         uni.hideLoading()
         saveAuthData('mock_token_' + Date.now(), { id: 10, nickname: '微信用户', phone: dynamicPhone, isVip: 1 })
         uni.showToast({ title: '绑定手机号登录成功！', icon: 'success' })
         this.visible = false
+        this.promptSubscribeMessage()
       }
     }
   }

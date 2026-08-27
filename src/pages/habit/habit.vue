@@ -125,7 +125,12 @@
 <script>
 import { getTodayHabitsApi, checkInApi, addHabitApi, deleteHabitApi } from '../../api/habit.js'
 import { checkLogin } from '../../utils/auth.js'
+import loginModal from '../../components/login-modal/login-modal.vue'
+
 export default {
+  components: {
+    loginModal
+  },
   data() {
     return {
       habits: [],
@@ -159,14 +164,6 @@ export default {
       }
       await checkInApi(1, item.habitId)
       uni.$emit('habit_status_changed')
-
-      // 成功打卡时自动保持订阅提醒额度，无需手动反复开关
-      if (item.checked) {
-        uni.requestSubscribeMessage({
-          tmplIds: ['K91dYUNJ6O195FwH596ocLpWpSAS29YM7TUvlCmQ0H8'],
-          fail: () => {}
-        })
-      }
     },
     getCategoryClass(cat) {
       if (cat === '水') return 'shui'

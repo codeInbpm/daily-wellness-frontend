@@ -238,8 +238,12 @@ import { getTodayHabitsApi, checkInApi } from '../../api/habit.js'
 import { uploadFileApi, deleteFileApi } from '../../api/common.js'
 import { getCurrentOrganClockApi } from '../../api/content.js'
 import { getUserInfo } from '../../utils/auth.js'
+import loginModal from '../../components/login-modal/login-modal.vue'
 
 export default {
+  components: {
+    loginModal
+  },
   data() {
     return {
       currentDateStr: '8月25日 · 星期二',
