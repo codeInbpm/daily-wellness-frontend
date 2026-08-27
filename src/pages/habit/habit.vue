@@ -124,7 +124,8 @@
 
 <script>
 import { getTodayHabitsApi, checkInApi, addHabitApi, deleteHabitApi } from '../../api/habit.js'
-import { checkLogin } from '../../utils/auth.js'
+import { checkLogin, getUserInfo } from '../../utils/auth.js'
+import { saveSubscribeStatusApi, SUBSCRIBE_TEMPLATE_ID } from '../../api/subscribe.js'
 import loginModal from '../../components/login-modal/login-modal.vue'
 
 export default {
@@ -164,6 +165,21 @@ export default {
       }
       await checkInApi(1, item.habitId)
       uni.$emit('habit_status_changed')
+
+      // 打卡成功时触发无感额度补充 (用户若勾选“总是允许”则零弹窗无感 +1 额度)
+      if (item.checked) {
+        uni.requestSubscribeMessage({
+          tmplIds: [SUBSCRIBE_TEMPLATE_ID],
+          success: async (res) => {
+            if (res && res[SUBSCRIBE_TEMPLATE_ID] === 'accept') {
+              const u = getUserInfo()
+              const userId = u ? u.id : 1
+              await saveSubscribeStatusApi(userId, SUBSCRIBE_TEMPLATE_ID, 'accept')
+            }
+          },
+          fail: () => {}
+        })
+      }
     },
     getCategoryClass(cat) {
       if (cat === '水') return 'shui'
