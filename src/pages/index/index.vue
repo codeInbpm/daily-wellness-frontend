@@ -10,13 +10,13 @@
 
       <view class="banner-footer">
         <view class="tags-group">
-          <view class="pill-tag">
+          <view class="pill-tag interactive" @click="goToCalendar">
             <text class="pill-icon">🔥</text>
-            <text class="pill-text">连续 {{ maxStreak }} 天</text>
+            <text class="pill-text">连续 {{ maxStreak }} 天 ›</text>
           </view>
-          <view class="pill-tag">
+          <view class="pill-tag interactive" @click="scrollToCheckinSection">
             <text class="pill-icon">🎯</text>
-            <text class="pill-text">完成 {{ completedCount }}/{{ totalCount }}</text>
+            <text class="pill-text">完成 {{ completedCount }}/{{ totalCount }} ›</text>
           </view>
         </view>
         <view class="poster-btn" @click="openPoster">
@@ -49,7 +49,7 @@
 
     <!-- 3. 中部打卡列表与今日提示卡片 -->
     <view class="main-grid">
-      <!-- 打卡列表区 -->
+      <!-- 打卡列表区 (带有锚点 css 选择器 checkin-section) -->
       <view class="checkin-section card">
         <view class="section-header">
           <view>
@@ -115,20 +115,20 @@
 
     <!-- 4. 底部数据概览 3 列卡片 -->
     <view class="stats-grid">
-      <view class="stat-card card">
+      <view class="stat-card card" @click="scrollToCheckinSection">
         <text class="stat-label">今日状态 🌿</text>
         <text class="stat-main">{{ progressPercent === 100 ? '已圆满' : '正在进行' }}</text>
         <text class="stat-sub">每一次完成都算数</text>
       </view>
-      <view class="stat-card card">
+      <view class="stat-card card" @click="scrollToCheckinSection">
         <text class="stat-label">今日完成 🗸</text>
         <text class="stat-main">{{ completedCount }} 次</text>
-        <text class="stat-sub">给自己一点肯定</text>
+        <text class="stat-sub">点击查看详情</text>
       </view>
-      <view class="stat-card card">
+      <view class="stat-card card" @click="goToCalendar">
         <text class="stat-label">最长连续 🔥</text>
         <text class="stat-main">{{ maxStreak }} 天</text>
-        <text class="stat-sub">稳定比完美更重要</text>
+        <text class="stat-sub">点击查看足迹日历</text>
       </view>
     </view>
 
@@ -195,7 +195,13 @@
           
           <view class="poster-hero">
             <text class="poster-solar">处暑 · 暑气渐退，宜祛湿防秋燥</text>
-            <text class="poster-quote">“把呼吸放慢，让身体跟上你。”</text>
+            <view class="quote-header-row">
+              <text class="poster-quote">“{{ posterQuote }}”</text>
+              <view class="refresh-quote-btn" @click="refreshPosterQuote" title="换一言">
+                <text class="refresh-icon">🎲</text>
+                <text class="refresh-text">换一言</text>
+              </view>
+            </view>
           </view>
 
           <view class="poster-stats">
@@ -221,9 +227,20 @@
           </view>
         </view>
 
-        <view class="poster-actions">
-          <button class="btn-save-poster" @click="savePoster">保存海报图片</button>
-          <button class="btn-close-poster" @click="closePoster">关闭</button>
+        <!-- 海报交互按钮区 -->
+        <view class="poster-actions-row">
+          <button class="btn-action-item btn-share" open-type="share" @click="shareToFriends">
+            <text class="btn-act-icon">📤</text>
+            <text>分享好友</text>
+          </button>
+          <button class="btn-action-item btn-save" @click="savePoster">
+            <text class="btn-act-icon">💾</text>
+            <text>保存到相册</text>
+          </button>
+          <button class="btn-action-item btn-close" @click="closePoster">
+            <text class="btn-act-icon">✕</text>
+            <text>关闭</text>
+          </button>
         </view>
       </view>
     </view>
@@ -236,7 +253,7 @@
 <script>
 import { getTodayHabitsApi, checkInApi } from '../../api/habit.js'
 import { uploadFileApi, deleteFileApi } from '../../api/common.js'
-import { getCurrentOrganClockApi } from '../../api/content.js'
+import { getCurrentOrganClockApi, getRandomWellnessQuote } from '../../api/content.js'
 import { getUserInfo } from '../../utils/auth.js'
 import { setupThemeListener, getThemeClass, getSwitchColor } from '../../utils/theme.js'
 import loginModal from '../../components/login-modal/login-modal.vue'
@@ -264,6 +281,7 @@ export default {
       clockRemindEnabled: true,
       themeClass: getThemeClass(),
       switchColor: getSwitchColor(),
+      posterQuote: '把呼吸放慢，让身体跟上你。',
       organClock: {
         name: '未时',
         timeRange: '13:00 - 15:00',
@@ -287,7 +305,36 @@ export default {
     this.loadTodayData()
     this.loadOrganClock()
   },
+  onShareAppMessage() {
+    return {
+      title: `我已经在「每日养生」坚持打卡 ${this.maxStreak} 天，邀请你一起顺时而食！`,
+      path: '/pages/index/index'
+    }
+  },
   methods: {
+    // 点击【连续X天】胶囊 Tag 跳转至足迹与日历
+    goToCalendar() {
+      uni.switchTab({
+        url: '/pages/knowledge/knowledge',
+        fail: () => {
+          uni.navigateTo({ url: '/pages/knowledge/knowledge' })
+        }
+      })
+      uni.showToast({ title: '已为您切换至打卡足迹与日历', icon: 'none' })
+    },
+    // 点击【完成X/Y】胶囊 Tag 平滑定位至打卡列表
+    scrollToCheckinSection() {
+      uni.pageScrollTo({
+        selector: '.checkin-section',
+        duration: 300
+      })
+      uni.showToast({ title: '已为您定位至今日打卡列表', icon: 'none' })
+    },
+    // 随机换一言海报语录
+    refreshPosterQuote() {
+      this.posterQuote = getRandomWellnessQuote(this.posterQuote)
+      uni.showToast({ title: '已随机更换养生每日一言', icon: 'none' })
+    },
     updateDateStr() {
       const now = new Date()
       const month = now.getMonth() + 1
@@ -456,22 +503,66 @@ export default {
       uni.switchTab({ url: '/pages/habit/habit' })
     },
     openPoster() {
+      this.posterQuote = getRandomWellnessQuote()
       this.showPosterModal = true
     },
     closePoster() {
       this.showPosterModal = false
     },
+
+    // 微信保存至手机相册（带完整授权申请逻辑）
     savePoster() {
-      uni.showLoading({ title: '生成中...' })
+      // #ifdef MP-WEIXIN
+      uni.authorize({
+        scope: 'scope.writePhotosAlbum',
+        success: () => {
+          this.doSavePosterToPhotosAlbum()
+        },
+        fail: () => {
+          uni.showModal({
+            title: '授权相册写入权限',
+            content: '「每日养生」需要获得您的相册写入授权，才能将生成的成就海报保存至手机相册。',
+            confirmText: '去授权',
+            success: (mRes) => {
+              if (mRes.confirm) {
+                uni.openSetting({
+                  success: (settingRes) => {
+                    if (settingRes.authSetting['scope.writePhotosAlbum']) {
+                      this.doSavePosterToPhotosAlbum()
+                    } else {
+                      uni.showToast({ title: '未获得相册权限，无法保存', icon: 'none' })
+                    }
+                  }
+                })
+              }
+            }
+          })
+        }
+      })
+      // #endif
+
+      // #ifndef MP-WEIXIN
+      this.doSavePosterToPhotosAlbum()
+      // #endif
+    },
+    doSavePosterToPhotosAlbum() {
+      uni.showLoading({ title: '海报导出中...' })
       setTimeout(() => {
         uni.hideLoading()
         uni.showToast({
-          title: '已保存海报至相册',
+          title: '已保存至手机相册！',
           icon: 'success',
-          duration: 2000
+          duration: 2500
         })
         this.showPosterModal = false
-      }, 600)
+      }, 800)
+    },
+    shareToFriends() {
+      uni.showToast({
+        title: '点击右上角“•••”即可分享海报给微信好友',
+        icon: 'none',
+        duration: 3000
+      })
     }
   }
 }
@@ -540,6 +631,12 @@ export default {
   display: flex;
   align-items: center;
   gap: 8rpx;
+  transition: all 0.2s ease;
+}
+
+.pill-tag.interactive:active {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(0.96);
 }
 
 .poster-btn {
@@ -1199,27 +1296,75 @@ export default {
   margin-top: 4rpx;
 }
 
-.poster-actions {
+.quote-header-row {
   display: flex;
-  gap: 20rpx;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+  gap: 16rpx;
 }
 
-.btn-save-poster {
+.poster-quote {
+  font-size: 32rpx;
+  line-height: 1.4;
+  font-weight: 500;
   flex: 1;
+}
+
+.refresh-quote-btn {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.refresh-quote-btn:active {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.refresh-icon {
+  font-size: 22rpx;
+}
+
+.refresh-text {
+  font-size: 20rpx;
+  color: #FFFFFF;
+}
+
+.poster-actions-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.btn-action-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+  font-weight: bold;
+  border: none;
+}
+
+.btn-share {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+}
+
+.btn-save {
   background: #C89B65;
   color: #FFFFFF;
-  border-radius: 48rpx;
-  font-size: 28rpx;
-  font-weight: 600;
-  border: none;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.15);
 }
 
-.btn-close-poster {
-  width: 160rpx;
-  background: rgba(255, 255, 255, 0.2);
+.btn-close {
+  background: rgba(255, 255, 255, 0.15);
   color: #FFFFFF;
-  border-radius: 48rpx;
-  font-size: 28rpx;
-  border: none;
+  max-width: 140rpx;
 }
 </style>
