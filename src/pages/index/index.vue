@@ -196,7 +196,10 @@
           <view class="poster-hero">
             <text class="poster-solar">处暑 · 暑气渐退，宜祛湿防秋燥</text>
             <view class="quote-header-row">
-              <text class="poster-quote">“{{ posterQuote }}”</text>
+              <view class="quote-text-group">
+                <text class="poster-quote">“{{ posterQuote }}”</text>
+                <text class="poster-quote-source" v-if="posterQuoteSource">—— {{ posterQuoteSource }}</text>
+              </view>
               <view class="refresh-quote-btn" @click="refreshPosterQuote" title="换一言">
                 <text class="refresh-icon">🎲</text>
                 <text class="refresh-text">换一言</text>
@@ -253,7 +256,7 @@
 <script>
 import { getTodayHabitsApi, checkInApi } from '../../api/habit.js'
 import { uploadFileApi, deleteFileApi } from '../../api/common.js'
-import { getCurrentOrganClockApi, getRandomWellnessQuote } from '../../api/content.js'
+import { getCurrentOrganClockApi, getRandomQuoteApi } from '../../api/content.js'
 import { getUserInfo } from '../../utils/auth.js'
 import { setupThemeListener, getThemeClass, getSwitchColor } from '../../utils/theme.js'
 import loginModal from '../../components/login-modal/login-modal.vue'
@@ -281,7 +284,8 @@ export default {
       clockRemindEnabled: true,
       themeClass: getThemeClass(),
       switchColor: getSwitchColor(),
-      posterQuote: '把呼吸放慢，让身体跟上你。',
+      posterQuote: '法于阴阳，和于术数，食饮有节，起居有常。',
+      posterQuoteSource: '《黄帝内经·素问》',
       organClock: {
         name: '未时',
         timeRange: '13:00 - 15:00',
@@ -330,10 +334,18 @@ export default {
       })
       uni.showToast({ title: '已为您定位至今日打卡列表', icon: 'none' })
     },
-    // 随机换一言海报语录
-    refreshPosterQuote() {
-      this.posterQuote = getRandomWellnessQuote(this.posterQuote)
-      uni.showToast({ title: '已随机更换养生每日一言', icon: 'none' })
+    // 调用后端 API 实时拉取《黄帝内经》/中医名家/民间谚语权威名句
+    async refreshPosterQuote() {
+      try {
+        const res = await getRandomQuoteApi()
+        if (res && res.data && res.data.content) {
+          this.posterQuote = res.data.content
+          this.posterQuoteSource = res.data.source || res.data.category || ''
+          uni.showToast({ title: '已在线拉取中医名家典籍金句', icon: 'none' })
+        }
+      } catch (e) {
+        console.error('动态拉取名言失败', e)
+      }
     },
     updateDateStr() {
       const now = new Date()
@@ -502,8 +514,8 @@ export default {
     goToHabitManage() {
       uni.switchTab({ url: '/pages/habit/habit' })
     },
-    openPoster() {
-      this.posterQuote = getRandomWellnessQuote()
+    async openPoster() {
+      await this.refreshPosterQuote()
       this.showPosterModal = true
     },
     closePoster() {
@@ -1304,11 +1316,23 @@ export default {
   gap: 16rpx;
 }
 
+.quote-text-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
 .poster-quote {
   font-size: 32rpx;
   line-height: 1.4;
   font-weight: 500;
-  flex: 1;
+}
+
+.poster-quote-source {
+  font-size: 22rpx;
+  opacity: 0.8;
+  margin-top: 8rpx;
+  font-style: italic;
 }
 
 .refresh-quote-btn {
