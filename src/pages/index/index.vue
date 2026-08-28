@@ -257,7 +257,7 @@
 import { getTodayHabitsApi, checkInApi } from '../../api/habit.js'
 import { uploadFileApi, deleteFileApi } from '../../api/common.js'
 import { getCurrentOrganClockApi, getRandomQuoteApi } from '../../api/content.js'
-import { getUserInfo } from '../../utils/auth.js'
+import { getUserInfo, checkLogin } from '../../utils/auth.js'
 import { setupThemeListener, getThemeClass, getSwitchColor } from '../../utils/theme.js'
 import loginModal from '../../components/login-modal/login-modal.vue'
 
@@ -319,9 +319,9 @@ export default {
     // 点击【连续X天】胶囊 Tag 跳转至足迹与日历
     goToCalendar() {
       uni.switchTab({
-        url: '/pages/knowledge/knowledge',
+        url: '/pages/calendar/calendar',
         fail: () => {
-          uni.navigateTo({ url: '/pages/knowledge/knowledge' })
+          uni.navigateTo({ url: '/pages/calendar/calendar' })
         }
       })
       uni.showToast({ title: '已为您切换至打卡足迹与日历', icon: 'none' })
@@ -390,7 +390,9 @@ export default {
         this.totalCount = res.data.totalCount || (this.habits.length > 0 ? this.habits.length : 5)
         this.progressPercent = res.data.progressPercent || 0
 
-        if (this.habits.length > 0) {
+        if (res.data.userMaxStreak !== undefined) {
+          this.maxStreak = res.data.userMaxStreak
+        } else if (this.habits.length > 0) {
           const streaks = this.habits.map(h => h.currentStreak || 0)
           this.maxStreak = Math.max(...streaks)
         } else {

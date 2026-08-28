@@ -75,3 +75,18 @@ export function checkLogin(callback) {
   uni.$emit('show_login_modal')
   return false
 }
+
+/**
+ * 校验用户对象是否拥有有效 VIP 权益 (兼容 1、true、到期时间)
+ */
+export function checkUserIsVip(user) {
+  if (!user) return false
+  const vipFlag = user.isVip === 1 || user.isVip === true || user.isVip === '1'
+  if (user.vipExpireTime) {
+    const expire = new Date(user.vipExpireTime).getTime()
+    if (expire > Date.now()) {
+      return true
+    }
+  }
+  return vipFlag
+}

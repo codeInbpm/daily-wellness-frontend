@@ -119,7 +119,8 @@
 
 <script>
 import { getCalendarRecordsApi, getDayCheckInDetailApi, getTodayHabitsApi, makeUpCheckInApi } from '../../api/habit.js'
-import { getUserInfo, checkLogin } from '../../utils/auth.js'
+import { getUserInfoApi } from '../../api/auth.js'
+import { getUserInfo, checkLogin, checkUserIsVip, saveAuthData, getToken } from '../../utils/auth.js'
 
 export default {
   data() {
@@ -173,10 +174,28 @@ export default {
         }
       }
     },
+    // 补打卡入口：带网络层实时核验 VIP
     async openMakeUpModal() {
       if (!checkLogin()) return
-      const u = getUserInfo()
-      if (!u || !u.isVip) {
+
+      let u = getUserInfo()
+      const userId = u ? u.id : 1
+
+      uni.showLoading({ title: '核验 VIP 权益...' })
+      try {
+        const res = await getUserInfoApi(userId)
+        if (res && res.data) {
+          u = res.data
+          saveAuthData(getToken(), u) // 实时刷新本地 Storage 缓存
+        }
+      } catch (e) {
+        console.error('拉取最新用户信息失败，使用本地缓存核验', e)
+      }
+      uni.hideLoading()
+
+      // 判断 VIP 有效性
+      const isVip = checkUserIsVip(u)
+      if (!isVip) {
         uni.showModal({
           title: 'VIP 专属补打卡',
           content: '补打卡权益为 VIP 会员专享，可保护连续成就不中断。是否去了解开通 VIP？',
@@ -189,6 +208,7 @@ export default {
         })
         return
       }
+
       this.showMakeUpModal = true
     },
     async submitMakeUp() {

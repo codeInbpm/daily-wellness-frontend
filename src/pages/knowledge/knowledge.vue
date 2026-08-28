@@ -203,10 +203,45 @@
             <text class="read-more-btn">{{ item.mediaType === 2 ? '观看视频 ❯' : '阅读全文 ❯' }}</text>
           </view>
         </view>
+
+        <!-- 显式分页控制 Bar (当前第X页, X条/页可调, 上一页/下一页, 共Y页) -->
+        <view class="classic-pagination-bar" v-if="articleList.length > 0">
+          <view class="pg-info-row">
+            <text class="pg-text">第 <text class="pg-num">{{ page }}</text> / {{ totalPages }} 页（共 {{ totalCount }} 条）</text>
+            
+            <!-- 每页条数调整选择器 -->
+            <picker class="size-picker" :value="sizeIndex" :range="sizeOptions" range-key="label" @change="onSizeChange">
+              <view class="picker-inner">
+                <text class="size-label">{{ size }} 条/页</text>
+                <text class="picker-arrow">▾</text>
+              </view>
+            </picker>
+          </view>
+
+          <view class="pg-actions-row">
+            <button class="btn-pg-action btn-sm" :disabled="page <= 1" :class="{ disabled: page <= 1 }" @click="goToFirstPage">
+              « 首页
+            </button>
+            <button class="btn-pg-action" :disabled="page <= 1" :class="{ disabled: page <= 1 }" @click="changePage(-1)">
+              ‹ 上一页
+            </button>
+            <view class="page-indicator-pill">
+              <text class="cur">{{ page }}</text>
+              <text class="spl">/</text>
+              <text class="tot">{{ totalPages }}</text>
+            </view>
+            <button class="btn-pg-action" :disabled="page >= totalPages" :class="{ disabled: page >= totalPages }" @click="changePage(1)">
+              下一页 ›
+            </button>
+            <button class="btn-pg-action btn-sm" :disabled="page >= totalPages" :class="{ disabled: page >= totalPages }" @click="goToLastPage">
+              尾页 »
+            </button>
+          </view>
+        </view>
       </view>
 
       <!-- 空状态 -->
-      <view class="empty-box" v-if="articleList.length === 0">
+      <view class="empty-box" v-if="articleList.length === 0 && !loading">
         <text class="empty-text">暂无相关科普与辟谣内容~</text>
       </view>
     </view>
@@ -228,6 +263,17 @@ export default {
       themeClass: getThemeClass(),
       articleCategories: ['全部', '养生辟谣', '中医科普', '白领亚健康调理', '办公室保健'],
       articleList: [],
+      page: 1,
+      size: 5,
+      hasMore: true,
+      totalCount: 0,
+      totalPages: 1,
+      sizeIndex: 1,
+      sizeOptions: [
+        { label: '3 条/页', value: 3 },
+        { label: '5 条/页', value: 5 },
+        { label: '10 条/页', value: 10 }
+      ],
       solarTerm: {
         name: '处暑',
         monthDay: '8月22-24日',
@@ -277,7 +323,12 @@ export default {
   onShow() {
     this.autoSelectCurrentClock()
     this.loadContent()
-    this.loadArticles()
+    this.loadArticles(1)
+  },
+  async onPullDownRefresh() {
+    await this.loadContent()
+    await this.loadArticles(1)
+    uni.stopPullDownRefresh()
   },
   methods: {
     autoSelectCurrentClock() {
@@ -311,19 +362,64 @@ export default {
         this.activeClock = clockRes.data
       }
     },
-    async loadArticles() {
-      const res = await getArticlesApi('', this.activeCategory, this.activeMediaType, 1, 10)
-      if (res && res.data && res.data.records) {
-        this.articleList = res.data.records
+    // 支持按指定页码物理真分页加载
+    async loadArticles(targetPage = null) {
+      if (targetPage !== null) {
+        this.page = targetPage
+      }
+      this.loading = true
+      try {
+        const res = await getArticlesApi('', this.activeCategory, this.activeMediaType, this.page, this.size)
+        if (res && res.data) {
+          this.articleList = res.data.records || []
+          this.totalCount = res.data.total || 0
+          this.totalPages = res.data.pages || Math.ceil(this.totalCount / this.size) || 1
+        }
+      } catch (e) {
+        console.error('加载文章列表失败', e)
+      } finally {
+        this.loading = false
       }
     },
+    // 上一页 / 下一页跳转
+    changePage(delta) {
+      const newPage = this.page + delta
+      if (newPage < 1 || newPage > this.totalPages || this.loading) return
+      this.loadArticles(newPage)
+      uni.pageScrollTo({ scrollTop: 120, duration: 200 })
+    },
+    // 跳转至首页
+    goToFirstPage() {
+      if (this.page <= 1 || this.loading) return
+      this.loadArticles(1)
+      uni.pageScrollTo({ scrollTop: 120, duration: 200 })
+    },
+    // 跳转至尾页
+    goToLastPage() {
+      if (this.page >= this.totalPages || this.loading) return
+      this.loadArticles(this.totalPages)
+      uni.pageScrollTo({ scrollTop: 120, duration: 200 })
+    },
+    // 每页条数选项切换 (3条/页, 5条/页, 10条/页)
+    onSizeChange(e) {
+      const idx = e.detail.value
+      this.sizeIndex = idx
+      this.size = this.sizeOptions[idx].value
+      this.loadArticles(1)
+      uni.showToast({ title: `已调整为 ${this.size} 条/页`, icon: 'none' })
+    },
     changeCategory(cat) {
+      if (this.activeCategory === cat) return
       this.activeCategory = cat
-      this.loadArticles()
+      this.loadArticles(1)
     },
     changeMediaType(type) {
-      this.activeMediaType = type
-      this.loadArticles()
+      if (this.activeMediaType === type) {
+        this.activeMediaType = ''
+      } else {
+        this.activeMediaType = type
+      }
+      this.loadArticles(1)
     },
     selectSolarTerm(term) {
       this.solarTerm = term
@@ -858,5 +954,123 @@ export default {
 .empty-text {
   font-size: 26rpx;
   color: #999;
+}
+
+/* 经典显式分页控件 Bar */
+.classic-pagination-bar {
+  margin-top: 36rpx;
+  margin-bottom: 20rpx;
+  background: #FFFFFF;
+  padding: 24rpx 28rpx;
+  border-radius: 28rpx;
+  box-shadow: 0 4rpx 16rpx rgba(46, 74, 59, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.pg-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pg-text {
+  font-size: 24rpx;
+  color: #7A8B82;
+}
+
+.pg-num {
+  color: var(--color-primary);
+  font-weight: bold;
+}
+
+.size-picker {
+  display: inline-block;
+}
+
+.picker-inner {
+  background: #FAF8F3;
+  border: 1px solid rgba(46, 74, 59, 0.15);
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.size-label {
+  font-size: 22rpx;
+  color: #2C3531;
+  font-weight: 500;
+}
+
+.picker-arrow {
+  font-size: 18rpx;
+  color: #7A8B82;
+}
+
+.pg-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10rpx;
+}
+
+.btn-pg-action {
+  flex: 1.2;
+  height: 68rpx;
+  background: var(--color-primary);
+  color: #FFFFFF;
+  border-radius: 34rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.btn-pg-action.btn-sm {
+  flex: 1;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 22rpx;
+}
+
+.btn-pg-action:active {
+  opacity: 0.85;
+}
+
+.btn-pg-action.disabled {
+  background: #E2E8F0 !important;
+  color: #94A3B8 !important;
+  pointer-events: none;
+}
+
+.page-indicator-pill {
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.page-indicator-pill .cur {
+  color: var(--color-primary);
+  font-size: 30rpx;
+}
+
+.page-indicator-pill .spl {
+  color: #CBD5E1;
+  font-size: 22rpx;
+}
+
+.page-indicator-pill .tot {
+  color: #64748B;
+  font-size: 24rpx;
 }
 </style>
