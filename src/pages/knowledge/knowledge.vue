@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view :class="['container', themeClass]">
     <!-- 顶层主功能 3 分栏 Tabs (节气与流注 | 养生辟谣干货 | 药膳百科) -->
     <view class="top-nav-tabs">
       <view class="tab-item" :class="{ active: currentTab === 0 }" @click="currentTab = 0">
@@ -216,6 +216,7 @@
 <script>
 import { getTodayQuoteApi, getCurrentSolarTermApi, getCurrentOrganClockApi } from '../../api/content.js'
 import { getArticlesApi } from '../../api/article.js'
+import { setupThemeListener, getThemeClass } from '../../utils/theme.js'
 
 export default {
   data() {
@@ -224,6 +225,7 @@ export default {
       scrollLeftOffset: 0,
       activeCategory: '全部',
       activeMediaType: '',
+      themeClass: getThemeClass(),
       articleCategories: ['全部', '养生辟谣', '中医科普', '白领亚健康调理', '办公室保健'],
       articleList: [],
       solarTerm: {
@@ -268,6 +270,9 @@ export default {
         { id: 15, name: '白露', monthDay: '9月7-9日', threeClimates: '一候鸿雁来；二候玄鸟归；三候群鸟养羞', dietAdvice: '宜食龙眼、大枣、芝麻润燥', livingAdvice: '早晚加衣，切勿赤脚，睡前温水泡脚', exerciseAdvice: '晨起散步，适度慢跑' }
       ]
     }
+  },
+  mounted() {
+    setupThemeListener(this)
   },
   onShow() {
     this.autoSelectCurrentClock()
@@ -367,7 +372,7 @@ export default {
 }
 
 .tab-item.active {
-  background: #2E6D56;
+  background: var(--color-primary);
 }
 
 .tab-item.active .tab-title {
@@ -416,7 +421,7 @@ export default {
 }
 
 .solar-card {
-  background: linear-gradient(135deg, #1E4D3B 0%, #2E6D56 100%);
+  background: var(--color-banner-gradient);
   border-radius: 36rpx;
   padding: 44rpx 36rpx;
   color: #FFFFFF;
@@ -541,8 +546,8 @@ export default {
 }
 
 .solar-chip.active {
-  border: 2rpx solid #2E6D56;
-  background-color: #EBF3EF;
+  border: 2rpx solid var(--color-primary);
+  background-color: var(--color-primary-light);
   transform: scale(1.04);
 }
 
@@ -748,7 +753,7 @@ export default {
 }
 
 .cat-chip.active {
-  background: #2E6D56;
+  background: var(--color-primary);
   color: #FFFFFF;
   font-weight: bold;
 }

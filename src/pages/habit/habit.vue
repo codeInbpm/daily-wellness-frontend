@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view :class="['container', themeClass]">
     <!-- 1. 顶部标语与添加按钮 -->
     <view class="header-section">
       <view class="header-text">
@@ -126,6 +126,7 @@
 import { getTodayHabitsApi, checkInApi, addHabitApi, deleteHabitApi } from '../../api/habit.js'
 import { checkLogin, getUserInfo } from '../../utils/auth.js'
 import { saveSubscribeStatusApi, SUBSCRIBE_TEMPLATE_ID } from '../../api/subscribe.js'
+import { setupThemeListener, getThemeClass } from '../../utils/theme.js'
 import loginModal from '../../components/login-modal/login-modal.vue'
 
 export default {
@@ -139,8 +140,12 @@ export default {
       showModal: false,
       inputName: '',
       selectedCategory: '养',
-      categoryList: ['养', '水', '行', '息', '温', '食', '心']
+      categoryList: ['养', '水', '行', '息', '温', '食', '心'],
+      themeClass: getThemeClass()
     }
+  },
+  mounted() {
+    setupThemeListener(this)
   },
   onShow() {
     this.loadHabits()
@@ -258,7 +263,7 @@ export default {
 
 .header-tag {
   font-size: 24rpx;
-  color: #2E6D56;
+  color: var(--color-primary);
   font-weight: 500;
   display: block;
 }
@@ -266,7 +271,7 @@ export default {
 .main-title {
   font-size: 46rpx;
   font-weight: 600;
-  color: #2C3531;
+  color: var(--color-text-main);
   line-height: 1.3;
   margin-top: 12rpx;
   display: block;
@@ -278,7 +283,7 @@ export default {
 
 .sub-title {
   font-size: 26rpx;
-  color: #7A8B82;
+  color: var(--color-text-sub);
   margin-top: 16rpx;
   line-height: 1.6;
   max-width: 460rpx;
@@ -286,7 +291,7 @@ export default {
 }
 
 .add-btn {
-  background-color: #2E6D56;
+  background-color: var(--color-primary);
   color: #FFFFFF;
   border-radius: 40rpx;
   padding: 16rpx 28rpx;
@@ -304,7 +309,7 @@ export default {
 }
 
 .card {
-  background-color: #FFFFFF;
+  background-color: var(--color-card-bg);
   border-radius: 28rpx;
   padding: 36rpx;
   box-shadow: 0 4rpx 16rpx rgba(46, 74, 59, 0.05);
@@ -324,20 +329,20 @@ export default {
 .manage-title {
   font-size: 36rpx;
   font-weight: 600;
-  color: #2C3531;
+  color: var(--color-text-main);
   display: block;
 }
 
 .manage-desc {
   font-size: 24rpx;
-  color: #A3B1A9;
+  color: var(--color-text-muted);
   margin-top: 6rpx;
   display: block;
 }
 
 .completed-badge {
-  background-color: #EBF3EF;
-  color: #2E6D56;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
   padding: 8rpx 20rpx;
   border-radius: 30rpx;
   font-size: 22rpx;

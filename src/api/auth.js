@@ -59,12 +59,3 @@ export function bindPhoneApi(wxCode, phone, smsCode) {
   })
 }
 
-/**
- * 强行用设备最新的 wxCode 同步更新写入用户的真实微信 OpenID
- */
-export function syncOpenidApi(userId, wxCode) {
-  return request('/auth/sync-openid', {
-    method: 'POST',
-    data: { userId, wxCode }
-  })
-}

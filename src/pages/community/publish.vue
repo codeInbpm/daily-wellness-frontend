@@ -65,6 +65,13 @@ export default {
       habitOptions: ['睡前泡脚 15 分钟', '喝够 8 杯水', '散步 30 分钟', '吃一顿滋养早餐', '22:30 前睡觉']
     }
   },
+  mounted() {
+    const isGlobalPrivate = uni.getStorageSync('global_private_mode')
+    if (isGlobalPrivate) {
+      this.isPrivate = 1
+      uni.showToast({ title: '已开启私密模式，本次打卡默认仅自己可见', icon: 'none', duration: 2500 })
+    }
+  },
   methods: {
     onHabitChange(e) {
       const idx = e.detail.value

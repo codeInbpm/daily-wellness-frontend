@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view :class="['container', themeClass]">
     <!-- 1. 顶部个人名片 Banner (已登录 vs 未登录状态) -->
     <view class="profile-banner" :class="{ unlogin: !isLogin }">
       <template v-if="isLogin">
@@ -19,7 +19,7 @@
           <view class="user-text-info">
             <view class="name-row">
               <text class="user-name">{{ (userInfo && userInfo.nickname) || '微信用户' }}</text>
-              <text class="vip-badge" v-if="userInfo && userInfo.isVip">👑 VIP</text>
+              <text class="vip-badge" v-if="userInfo && userInfo.isVip">👑 VIP 会员</text>
             </view>
             <view class="edit-hint-row">
               <text class="edit-hint-tag">📷 点击修改头像/昵称</text>
@@ -29,7 +29,7 @@
         </view>
 
         <view class="vip-btn" @click="goToVip">
-          <text>会员权益</text>
+          <text>{{ (userInfo && userInfo.isVip) ? '会员中心' : '开通 VIP' }}</text>
           <text class="arrow">›</text>
         </view>
       </template>
@@ -49,6 +49,15 @@
           一键登录
         </view>
       </template>
+    </view>
+
+    <!-- VIP 快到期高亮提醒条 -->
+    <view v-if="isLogin && userInfo && userInfo.isVip && userInfo.isExpiringSoon" class="vip-expiring-alert" @click="goToVip">
+      <view class="expiring-left">
+        <text class="alert-icon">⚠️</text>
+        <text class="alert-text">您的 VIP 会员即将在 <text class="days-highlight">{{ userInfo.vipRemainingDays }}</text> 天后到期，请及时续费！</text>
+      </view>
+      <view class="renew-btn">立即续费 ›</view>
     </view>
 
     <!-- 2. 数据 3 列汇总卡片 -->
@@ -96,7 +105,7 @@
             </picker>
           </view>
         </view>
-        <switch :checked="remindEnabled" @change="toggleRemind" @click.stop color="#2E6D56"/>
+        <switch :checked="remindEnabled" @change="toggleRemind" @click.stop :color="switchColor"/>
       </view>
 
       <view class="setting-item">
@@ -104,10 +113,10 @@
           <view class="setting-icon">🔒</view>
           <view>
             <text class="setting-name">私密模式</text>
-            <text class="setting-desc">只在这台设备保留浏览痕迹</text>
+            <text class="setting-desc">只在这台设备保留浏览痕迹 & 发布打卡默认私密</text>
           </view>
         </view>
-        <switch :checked="privateMode" @change="togglePrivateMode" color="#2E6D56"/>
+        <switch :checked="privateMode" @change="togglePrivateMode" :color="switchColor"/>
       </view>
 
       <view class="setting-item" @click="openThemeSelector">
@@ -156,10 +165,6 @@
         <text class="cell-text">📄 服务条款</text>
         <text class="cell-arrow">›</text>
       </view>
-      <view class="cell-item" v-if="isLogin" @click="handleSyncOpenid">
-        <text class="cell-text">🔄 诊断并同步当前设备微信 OpenID</text>
-        <text class="cell-arrow">›</text>
-      </view>
 
       <view class="cell-item logout" v-if="isLogin" @click="logout">
         <text class="cell-text-logout">🚪 退出当前账号</text>
@@ -172,8 +177,9 @@
 </template>
 
 <script>
-import { getUserInfoApi, updateUserSettingsApi, syncOpenidApi } from '../../api/auth.js'
+import { getUserInfoApi, updateUserSettingsApi } from '../../api/auth.js'
 import { isLoggedIn, getUserInfo, clearAuthData, checkLogin } from '../../utils/auth.js'
+import { setupThemeListener, getThemeClass, getSwitchColor } from '../../utils/theme.js'
 import loginModal from '../../components/login-modal/login-modal.vue'
 
 export default {
@@ -187,7 +193,9 @@ export default {
       remindTime: '08:30',
       remindEnabled: true,
       privateMode: false,
-      themeCode: 'default'
+      themeCode: 'default',
+      themeClass: getThemeClass(),
+      switchColor: getSwitchColor()
     }
   },
   computed: {
@@ -206,6 +214,17 @@ export default {
     this.refreshAuthState()
   },
   mounted() {
+    setupThemeListener(this)
+
+    const savedPrivate = uni.getStorageSync('global_private_mode')
+    if (savedPrivate !== undefined && savedPrivate !== null && savedPrivate !== '') {
+      this.privateMode = !!savedPrivate
+    }
+    const savedTheme = uni.getStorageSync('user_theme_code')
+    if (savedTheme) {
+      this.themeCode = savedTheme
+    }
+
     uni.$on('user_auth_changed', () => {
       this.refreshAuthState()
     })
@@ -218,23 +237,9 @@ export default {
     uni.$off('habit_status_changed')
   },
   methods: {
-    checkAndPromptSubscribe() {
-      if (!this.isLogin) return
-      const prompted = uni.getStorageSync('subscribe_prompted_flag')
-      if (!prompted) {
-        uni.setStorageSync('subscribe_prompted_flag', '1')
-        uni.showModal({
-          title: '每日健康节气提醒',
-          content: `系统已默认开启每日 ${this.remindTime} 节气与食疗卡片通知。是否立即确认并接收微信推送？`,
-          confirmText: '确认开启',
-          cancelText: '稍后再说',
-          success: (res) => {
-            if (res.confirm) {
-              this.requestSubscribeMsg()
-            }
-          }
-        })
-      }
+    formatVipDate(dateStr) {
+      if (!dateStr) return '未知'
+      return dateStr.substring(0, 10)
     },
     refreshAuthState() {
       this.isLogin = isLoggedIn()
@@ -252,6 +257,11 @@ export default {
         if (res && res.data) {
           this.userInfo = Object.assign({}, this.userInfo || {}, res.data)
           if (res.data.remindTime) this.remindTime = res.data.remindTime
+          if (res.data.themeCode) {
+            this.themeCode = res.data.themeCode
+            uni.setStorageSync('user_theme_code', res.data.themeCode)
+            uni.$emit('theme_changed', res.data.themeCode)
+          }
         }
       } catch (e) {
         console.error('加载个人信息失败', e)
@@ -295,7 +305,7 @@ export default {
           if (selectedCode !== 'default' && !isVip) {
             uni.showModal({
               title: 'VIP 专属主题',
-              content: '专属配色主题为 VIP 会员专享，是否去了解开通 VIP？',
+              content: '专属配色主题为 VIP 会员专享，充值开通 VIP 即可立即无限制享用全部皮肤！是否去了解开通 VIP？',
               confirmText: '去开通',
               success: (mRes) => {
                 if (mRes.confirm) {
@@ -313,6 +323,8 @@ export default {
 
           if (updateRes && updateRes.code === 200) {
             this.themeCode = selectedCode
+            uni.setStorageSync('user_theme_code', selectedCode)
+            uni.$emit('theme_changed', selectedCode)
             uni.showToast({ title: `已成功切换为：${themes[res.tapIndex]}`, icon: 'success' })
           } else {
             uni.showToast({ title: updateRes?.msg || '切换失败', icon: 'none' })
@@ -342,106 +354,17 @@ export default {
         uni.showToast({ title: '已关闭提醒', icon: 'none' })
       }
     },
-    requestSubscribeMsg() {
-      if (!checkLogin()) return
-
-      // 微信官方底层硬性限制：requestSubscribeMessage 必须在用户点击事件的第一行同步直接调用！
-      uni.requestSubscribeMessage({
-        tmplIds: [SUBSCRIBE_TEMPLATE_ID],
-        success: async (res) => {
-          if (res && res[SUBSCRIBE_TEMPLATE_ID] === 'accept') {
-            uni.showToast({ title: '🎉 已成功开启微信每日养生推送！', icon: 'success', duration: 2500 })
-            const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
-            await saveSubscribeStatusApi(userId, SUBSCRIBE_TEMPLATE_ID, 'accept')
-          } else {
-            uni.showToast({ title: '授权未完成，请勾选允许', icon: 'none' })
-          }
-        },
-        fail: (err) => {
-          console.log('订阅授权失败/拒绝', err)
-          uni.showModal({
-            title: '授权提示',
-            content: '若微信未能正常唤起弹窗，请点击右上角「···」->「设置」->「订阅消息」，将【健康调养提醒】设置为“接收消息”。',
-            confirmText: '我知道了',
-            showCancel: false
-          })
-        }
-      })
-
-      // 后台静默将设备真实的微信 OpenID 写入后端数据库 sys_user 表
-      uni.login({
-        provider: 'weixin',
-        success: async (lRes) => {
-          if (lRes && lRes.code) {
-            const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
-            await syncOpenidApi(userId, lRes.code)
-          }
-        }
-      })
-    },
-    async handleTestSendSubscribe() {
-      if (!checkLogin()) return
-      uni.showLoading({ title: '组装节气并推发中...' })
-      const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
-      const res = await sendTestSubscribeApi(userId)
-      uni.hideLoading()
-      if (res && res.code === 200) {
-        const msg = res.data ? `【${res.data.thing1}】${res.data.thing2}` : '订阅消息推送成功！'
-        uni.showModal({
-          title: '订阅消息推送模拟成功',
-          content: `模版ID：${SUBSCRIBE_TEMPLATE_ID}\n` + msg,
-          showCancel: false
-        })
-      } else {
-        uni.showToast({ title: res?.msg || '发送失败', icon: 'none' })
-      }
-    },
     togglePrivateMode(e) {
       this.privateMode = e.detail.value
-      uni.showToast({ title: this.privateMode ? '已开启私密模式' : '已关闭私密模式', icon: 'none' })
+      uni.setStorageSync('global_private_mode', this.privateMode)
+      uni.showToast({ 
+        title: this.privateMode ? '已开启私密模式 (打卡默认仅自己可见)' : '已关闭私密模式', 
+        icon: 'none',
+        duration: 2000
+      })
     },
     showModal(title, content) {
       uni.showModal({ title, content, showCancel: false })
-    },
-    async handleSyncOpenid() {
-      if (!checkLogin()) return
-      uni.showLoading({ title: '正在获取微信真实 OpenID...' })
-      try {
-        const loginRes = await new Promise((resolve) => {
-          uni.login({
-            provider: 'weixin',
-            success: (res) => resolve(res),
-            fail: (err) => resolve({ code: null, err })
-          })
-        })
-        const wxCode = (loginRes && loginRes.code) ? loginRes.code : ''
-        if (!wxCode) {
-          uni.hideLoading()
-          uni.showToast({ title: '未能获取到设备的微信登录凭证', icon: 'none' })
-          return
-        }
-
-        const userId = (this.userInfo && this.userInfo.id) ? this.userInfo.id : 1
-        const res = await syncOpenidApi(userId, wxCode)
-        uni.hideLoading()
-
-        if (res && res.code === 200 && res.data) {
-          const realOpenid = res.data.openid
-          if (this.userInfo) {
-            this.userInfo.openid = realOpenid
-          }
-          uni.showModal({
-            title: '✅ 真实 OpenID 同步绑定成功',
-            content: `已成功将您设备当前的真实微信 OpenID 写入数据库：\n\n${realOpenid}\n\n后台定时任务向此 OpenID 发送提醒将 100% 成功！`,
-            showCancel: false
-          })
-        } else {
-          uni.showToast({ title: res?.msg || '同步失败', icon: 'none' })
-        }
-      } catch (e) {
-        uni.hideLoading()
-        uni.showToast({ title: '网络异常，请重试', icon: 'none' })
-      }
     },
     logout() {
       uni.showModal({
@@ -474,7 +397,7 @@ export default {
 
 /* 深绿色名片 Banner */
 .profile-banner {
-  background: linear-gradient(135deg, #2E6D56 0%, #1E4D3B 100%);
+  background: var(--color-banner-gradient);
   border-radius: 36rpx;
   padding: 44rpx 36rpx;
   color: #FFFFFF;
@@ -550,6 +473,74 @@ export default {
   font-weight: bold;
   padding: 2rpx 12rpx;
   border-radius: 10rpx;
+}
+
+.vip-time-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 4rpx;
+}
+
+.vip-time-text {
+  font-size: 20rpx;
+  opacity: 0.85;
+}
+
+.vip-days-pill {
+  background: rgba(255, 215, 0, 0.25);
+  color: #FFD700;
+  font-size: 18rpx;
+  font-weight: bold;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+/* 快到期提醒 Alert Bar */
+.vip-expiring-alert {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 2rpx solid #F59E0B;
+  border-radius: 24rpx;
+  padding: 24rpx 32rpx;
+  margin-bottom: 24rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4rpx 12rpx rgba(245, 158, 11, 0.15);
+}
+
+.expiring-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex: 1;
+}
+
+.alert-icon {
+  font-size: 32rpx;
+}
+
+.alert-text {
+  font-size: 24rpx;
+  color: #92400E;
+  font-weight: 500;
+}
+
+.days-highlight {
+  color: #DC2626;
+  font-weight: 700;
+  font-size: 28rpx;
+}
+
+.renew-btn {
+  background: #D97706;
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: bold;
+  padding: 10rpx 22rpx;
+  border-radius: 30rpx;
+  flex-shrink: 0;
 }
 
 .edit-hint-row {

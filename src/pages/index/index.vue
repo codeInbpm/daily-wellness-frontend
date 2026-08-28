@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view :class="['container', themeClass]">
     <!-- 1. 顶部深绿问候 Banner 卡片 -->
     <view class="banner-card">
       <view class="banner-header">
@@ -37,7 +37,7 @@
             <text class="clock-organ-badge">{{ organClock.organ }}</text>
           </view>
         </view>
-        <switch :checked="clockRemindEnabled" @change="toggleClockRemind" color="#2E6D56"/>
+        <switch :checked="clockRemindEnabled" @change="toggleClockRemind" :color="switchColor"/>
       </view>
 
       <text class="clock-advice">“{{ organClock.advice }}”</text>
@@ -238,6 +238,7 @@ import { getTodayHabitsApi, checkInApi } from '../../api/habit.js'
 import { uploadFileApi, deleteFileApi } from '../../api/common.js'
 import { getCurrentOrganClockApi } from '../../api/content.js'
 import { getUserInfo } from '../../utils/auth.js'
+import { setupThemeListener, getThemeClass, getSwitchColor } from '../../utils/theme.js'
 import loginModal from '../../components/login-modal/login-modal.vue'
 
 export default {
@@ -261,6 +262,8 @@ export default {
       uploadedMediaUrl: '',
       uploadedMediaType: 'none',
       clockRemindEnabled: true,
+      themeClass: getThemeClass(),
+      switchColor: getSwitchColor(),
       organClock: {
         name: '未时',
         timeRange: '13:00 - 15:00',
@@ -275,6 +278,9 @@ export default {
       const u = getUserInfo()
       return u && (u.isVip || (u.vipExpireTime && new Date(u.vipExpireTime) > new Date()))
     }
+  },
+  mounted() {
+    setupThemeListener(this)
   },
   onShow() {
     this.updateDateStr()
@@ -480,7 +486,7 @@ export default {
 
 /* 顶部 Banner 卡片 */
 .banner-card {
-  background: linear-gradient(135deg, #2E6D56 0%, #1E4D3B 100%);
+  background: var(--color-banner-gradient);
   border-radius: 36rpx;
   padding: 48rpx 40rpx;
   color: #FFFFFF;
@@ -664,8 +670,8 @@ export default {
   width: 96rpx;
   height: 96rpx;
   border-radius: 50%;
-  border: 6rpx solid #EBF3EF;
-  border-top-color: #2E6D56;
+  border: 6rpx solid var(--color-primary-light);
+  border-top-color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -674,7 +680,7 @@ export default {
 .progress-num {
   font-size: 26rpx;
   font-weight: 700;
-  color: #2E6D56;
+  color: var(--color-primary);
 }
 
 .habit-list {
@@ -687,7 +693,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #FAF8F3;
+  background-color: var(--color-card-secondary);
   padding: 24rpx 28rpx;
   border-radius: 24rpx;
   transition: all 0.25s ease;
@@ -695,7 +701,7 @@ export default {
 }
 
 .habit-item.is-checked {
-  background-color: #F0F7F3;
+  background-color: var(--color-primary-light);
   border-color: rgba(46, 109, 86, 0.15);
 }
 
@@ -710,8 +716,8 @@ export default {
   width: 48rpx;
   height: 48rpx;
   border-radius: 50%;
-  background: #E8F0EB;
-  color: #2E6D56;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
   font-size: 24rpx;
   font-weight: bold;
   display: flex;
@@ -732,18 +738,18 @@ export default {
 .habit-name {
   font-size: 28rpx;
   font-weight: 600;
-  color: #2C3531;
+  color: var(--color-text-main);
   transition: color 0.2s;
 }
 
 .habit-name.text-completed {
-  color: #7A8B82;
+  color: var(--color-text-sub);
   text-decoration: line-through;
 }
 
 .habit-streak {
   font-size: 22rpx;
-  color: #7A8B82;
+  color: var(--color-text-sub);
   margin-top: 4rpx;
 }
 
@@ -757,7 +763,7 @@ export default {
   width: 52rpx;
   height: 52rpx;
   border-radius: 50%;
-  background-color: #EBF3EF;
+  background-color: var(--color-primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -780,8 +786,8 @@ export default {
 }
 
 .check-btn.checked {
-  background-color: #2E6D56;
-  border-color: #2E6D56;
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
   transform: scale(1.08);
 }
 

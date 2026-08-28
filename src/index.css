@@ -2,18 +2,58 @@
    「每日养生」禅意新中式 UI 设计系统基础样式
    ============================================================ */
 
-/* 色彩 Variables */
-:root {
+/* 色彩 Variables 与 4 套 VIP 专属皮肤全局配置 */
+:root, page, .theme-default {
   --color-bg: #F7F5F0;
   --color-primary: #2E6D56;
   --color-primary-dark: #1E4D3B;
   --color-primary-light: #EBF3EF;
+  --color-banner-gradient: linear-gradient(135deg, #2E6D56 0%, #1E4D3B 100%);
   --color-card-bg: #FFFFFF;
   --color-card-secondary: #FAF8F3;
   --color-text-main: #2C3531;
   --color-text-sub: #7A8B82;
   --color-text-muted: #A3B1A9;
   --color-gold-accent: #C79A5E;
+}
+
+/* 暖杏 (VIP尊享) */
+page.theme-warm_apricot, .theme-warm_apricot {
+  --color-bg: #FAF6ED;
+  --color-primary: #C89B65;
+  --color-primary-dark: #8C6D46;
+  --color-primary-light: #FAF4EB;
+  --color-banner-gradient: linear-gradient(135deg, #C89B65 0%, #8C6D46 100%);
+  --color-card-bg: #FFFFFF;
+  --color-card-secondary: #FFFDF9;
+  --color-text-main: #3A2E2B;
+  --color-text-sub: #9E8268;
+}
+
+/* 暮山紫 (VIP尊享) */
+page.theme-twilight_purple, .theme-twilight_purple {
+  --color-bg: #F5F3F8;
+  --color-primary: #6B5B95;
+  --color-primary-dark: #4A3E6B;
+  --color-primary-light: #F4F0F8;
+  --color-banner-gradient: linear-gradient(135deg, #6B5B95 0%, #4A3E6B 100%);
+  --color-card-bg: #FFFFFF;
+  --color-card-secondary: #FAF8FC;
+  --color-text-main: #2E2638;
+  --color-text-sub: #7C708C;
+}
+
+/* 松柏绿 (VIP尊享) */
+page.theme-pine_teal, .theme-pine_teal {
+  --color-bg: #F2F7F4;
+  --color-primary: #1A4334;
+  --color-primary-dark: #0E291F;
+  --color-primary-light: #E8F5E9;
+  --color-banner-gradient: linear-gradient(135deg, #1A4334 0%, #0E291F 100%);
+  --color-card-bg: #FFFFFF;
+  --color-card-secondary: #F7FAF8;
+  --color-text-main: #1D2B24;
+  --color-text-sub: #5F776B;
 }
 
 page {

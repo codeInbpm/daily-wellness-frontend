@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view :class="['container', themeClass]">
     <!-- 头部引导 Banner -->
     <view class="header-card">
       <view class="header-info">
@@ -83,6 +83,7 @@
 
 <script>
 import { getPostListApi, toggleLikePostApi, deletePostApi, togglePrivacyApi } from '../../api/community.js'
+import { setupThemeListener, getThemeClass } from '../../utils/theme.js'
 
 export default {
   data() {
@@ -90,8 +91,12 @@ export default {
       currentUserId: 1, // 当前登录用户ID
       selectedHabitFilter: '全部',
       filterHabitOptions: ['全部', '睡前泡脚 15 分钟', '喝够 8 杯水', '散步 30 分钟', '吃一顿滋养早餐', '22:30 前睡觉'],
-      postList: []
+      postList: [],
+      themeClass: getThemeClass()
     }
+  },
+  mounted() {
+    setupThemeListener(this)
   },
   onShow() {
     this.loadPosts()
@@ -189,7 +194,7 @@ export default {
 }
 
 .header-card {
-  background: linear-gradient(135deg, #1E4D3B 0%, #2E6D56 100%);
+  background: var(--color-banner-gradient);
   border-radius: 28rpx;
   padding: 32rpx;
   color: #FFFFFF;
@@ -242,7 +247,7 @@ export default {
 }
 
 .filter-chip.active {
-  background: #2E6D56;
+  background: var(--color-primary);
   color: #FFFFFF;
   font-weight: bold;
 }
@@ -300,8 +305,8 @@ export default {
 }
 
 .habit-tag {
-  background: #EBF3EF;
-  color: #2E6D56;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
   font-size: 20rpx;
   padding: 4rpx 14rpx;
   border-radius: 12rpx;

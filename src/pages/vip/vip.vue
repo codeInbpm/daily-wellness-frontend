@@ -1,13 +1,30 @@
 <template>
-  <view class="container">
+  <view :class="['container', themeClass]">
     <!-- 顶部尊享 VIP Banner -->
     <view class="vip-header-card">
       <view class="header-top">
         <view class="crown-badge">👑 VIP 尊享会员</view>
         <text class="social-proof">已有 1,280+ 养生道友加入</text>
       </view>
-      <text class="vip-main-title">让坚持养生更自由、更有仪式感</text>
-      <text class="vip-sub-title">解锁无限习惯、历史补打卡、专属柔和主题与完整养生干货</text>
+      
+      <!-- 如果当前已经是 VIP 会员，展示生效及到期时间 -->
+      <view class="current-vip-info-box" v-if="userInfo && userInfo.isVip">
+        <view class="info-tag-row">
+          <text class="status-tag">尊贵会员已生效</text>
+          <text class="days-remaining-pill">剩余 {{ (userInfo.vipRemainingDays > 30000) ? '永久有效' : (userInfo.vipRemainingDays + ' 天') }}</text>
+        </view>
+        <view class="dates-detail-row">
+          <text>开通时间：{{ formatVipDate(userInfo.vipStartTime) }}</text>
+          <text>到期时间：{{ formatVipDate(userInfo.vipExpireTime) }}</text>
+        </view>
+        <view v-if="userInfo.isExpiringSoon" class="expiring-notice">
+          ⚠️ 您的会员即将在 {{ userInfo.vipRemainingDays }} 天后到期，现在续费可延长有效期！
+        </view>
+      </view>
+      <template v-else>
+        <text class="vip-main-title">让坚持养生更自由、更有仪式感</text>
+        <text class="vip-sub-title">解锁无限习惯、历史补打卡、专属柔和主题与完整养生干货</text>
+      </template>
     </view>
 
     <!-- 8 大 VIP 专属权益清单卡片 -->
@@ -218,17 +235,23 @@
 </template>
 
 <script>
-import { request } from '../../utils/request.js'
-import { getUserInfo, checkLogin } from '../../utils/auth.js'
-import { uploadFileApi } from '../../api/common.js'
+import { createOrderApi } from '../../api/pay.js'
+import { getUserInfoApi } from '../../api/auth.js'
+import { checkLogin, getUserInfo } from '../../utils/auth.js'
+import { setupThemeListener, getThemeClass } from '../../utils/theme.js'
+import loginModal from '../../components/login-modal/login-modal.vue'
 
 export default {
+  components: {
+    loginModal
+  },
   data() {
     return {
-      selectedPlan: 'YEAR',
-      orderInfo: null,
-      payScreenshot: '',
-      transferRemark: ''
+      selectedPlan: 'YEAR', // 'MONTH', 'YEAR', 'LIFETIME'
+      showQrModal: false,
+      payOrderInfo: null,
+      userInfo: null,
+      themeClass: getThemeClass()
     }
   },
   computed: {
@@ -238,7 +261,30 @@ export default {
       return '连续包年 (¥48/年)'
     }
   },
+  mounted() {
+    setupThemeListener(this)
+  },
+  onShow() {
+    this.loadUserInfo()
+  },
   methods: {
+    formatVipDate(dateStr) {
+      if (!dateStr) return '暂无记录'
+      return dateStr.substring(0, 10)
+    },
+    async loadUserInfo() {
+      const u = getUserInfo()
+      if (u && u.id) {
+        try {
+          const res = await getUserInfoApi(u.id)
+          if (res && res.data) {
+            this.userInfo = res.data
+          }
+        } catch (e) {
+          this.userInfo = u
+        }
+      }
+    },
     selectPlan(plan) {
       this.selectedPlan = plan
       this.orderInfo = null // 切换套餐时重置订单
@@ -363,7 +409,7 @@ export default {
 
 /* 顶部 Banner */
 .vip-header-card {
-  background: linear-gradient(135deg, #1E4D3B 0%, #2E6D56 100%);
+  background: var(--color-banner-gradient);
   border-radius: 36rpx;
   padding: 48rpx 40rpx;
   color: #FFFFFF;
@@ -391,6 +437,55 @@ export default {
 .social-proof {
   font-size: 22rpx;
   color: rgba(255, 255, 255, 0.8);
+}
+
+.current-vip-info-box {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  border-radius: 24rpx;
+  padding: 24rpx 28rpx;
+  margin-top: 16rpx;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.info-tag-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.status-tag {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #FFD700;
+}
+
+.days-remaining-pill {
+  background: #FFD700;
+  color: #5D4037;
+  font-size: 20rpx;
+  font-weight: 800;
+  padding: 4rpx 14rpx;
+  border-radius: 12rpx;
+}
+
+.dates-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 22rpx;
+  opacity: 0.9;
+}
+
+.expiring-notice {
+  margin-top: 16rpx;
+  background: rgba(220, 38, 38, 0.25);
+  border: 1px solid rgba(252, 165, 165, 0.5);
+  color: #FECACA;
+  font-size: 22rpx;
+  padding: 10rpx 16rpx;
+  border-radius: 12rpx;
+  font-weight: 500;
 }
 
 .vip-main-title {
@@ -816,7 +911,7 @@ export default {
 }
 
 .pay-btn {
-  background: linear-gradient(135deg, #2E6D56 0%, #1E4D3B 100%);
+  background: var(--color-banner-gradient);
   color: #FFFFFF;
   border-radius: 48rpx;
   padding: 20rpx 32rpx;

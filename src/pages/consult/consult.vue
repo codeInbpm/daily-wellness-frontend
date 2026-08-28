@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view :class="['container', themeClass]">
     <!-- 头部 Banner -->
     <view class="consult-header-card">
       <text class="consult-title">🤖 AI 养生智伴 1V1 咨询</text>
@@ -46,12 +46,17 @@
 
 <script>
 import { getConsultTopicsApi } from '../../api/consult.js'
+import { setupThemeListener, getThemeClass } from '../../utils/theme.js'
 
 export default {
   data() {
     return {
-      topics: []
+      topics: [],
+      themeClass: getThemeClass()
     }
+  },
+  mounted() {
+    setupThemeListener(this)
   },
   onShow() {
     this.loadTopics()
@@ -80,7 +85,7 @@ export default {
 }
 
 .consult-header-card {
-  background: linear-gradient(135deg, #1E4D3B 0%, #2E6D56 100%);
+  background: var(--color-banner-gradient);
   border-radius: 36rpx;
   padding: 40rpx 36rpx;
   color: #FFFFFF;
@@ -135,7 +140,7 @@ export default {
 .chat-main-title {
   font-size: 30rpx;
   font-weight: bold;
-  color: #2E6D56;
+  color: var(--color-primary);
 }
 
 .chat-sub-title {
@@ -145,7 +150,7 @@ export default {
 }
 
 .btn-start {
-  background: #2E6D56;
+  background: var(--color-primary);
   color: #FFFFFF;
   font-size: 24rpx;
   font-weight: 600;
@@ -204,7 +209,7 @@ export default {
 
 .prompt-hint {
   font-size: 22rpx;
-  color: #2E6D56;
+  color: var(--color-primary);
   font-weight: 500;
   flex: 1;
   white-space: nowrap;
@@ -215,7 +220,7 @@ export default {
 
 .action-btn {
   font-size: 24rpx;
-  color: #2E6D56;
+  color: var(--color-primary);
   font-weight: bold;
 }
 
