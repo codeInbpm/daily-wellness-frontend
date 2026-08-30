@@ -79,20 +79,20 @@
 
         <scroll-view class="cart-items-scroll" scroll-y>
           <view v-for="(cItem, index) in cartList" :key="cItem.id" class="cart-item-row">
-            <image :src="cItem.imageUrl" class="cart-item-img" mode="aspectFill"/>
+            <image :src="cItem.productImage || cItem.imageUrl" class="cart-item-img" mode="aspectFill"/>
             
             <view class="cart-item-info">
-              <text class="cart-item-title">{{ cItem.title }}</text>
-              <text class="cart-item-spec">规格：{{ cItem.spec }}</text>
-              <text class="cart-item-price">¥{{ cItem.price }}</text>
+              <text class="cart-item-title">{{ cItem.productTitle || cItem.title }}</text>
+              <text class="cart-item-spec">规格：{{ cItem.productSpec || cItem.spec }}</text>
+              <text class="cart-item-price">¥{{ cItem.productPrice || cItem.price }}</text>
             </view>
 
             <!-- 增加 / 减少 / 删除 数量管理器 -->
             <view class="quantity-controller">
-              <view class="qty-btn" @click="decreaseQty(index)">-</view>
+              <view class="qty-btn" @click="decreaseQty(cItem, index)">-</view>
               <text class="qty-num">{{ cItem.quantity }}</text>
-              <view class="qty-btn" @click="increaseQty(index)">+</view>
-              <view class="delete-cart-btn" @click="removeCartItem(index)" title="删除">🗑️</view>
+              <view class="qty-btn" @click="increaseQty(cItem, index)">+</view>
+              <view class="delete-cart-btn" @click="removeCartItem(cItem, index)" title="删除">🗑️</view>
             </view>
           </view>
         </scroll-view>
@@ -103,7 +103,7 @@
             <text class="d-total-label">应付总额：</text>
             <text class="d-total-price">¥{{ totalCartPrice }}</text>
           </view>
-          <button class="btn-checkout" @click="handleCheckout">微信支付下单</button>
+          <button class="btn-checkout" @click="handleCheckout">提交订单</button>
         </view>
       </view>
     </view>
@@ -111,7 +111,16 @@
 </template>
 
 <script>
-import { getShopProductsApi } from '../../api/shop.js'
+import { 
+  getShopProductsApi, 
+  getCartListApi, 
+  addToCartApi, 
+  updateCartQuantityApi, 
+  deleteCartItemApi,
+  getAddressesApi,
+  createMallOrderApi 
+} from '../../api/shop.js'
+import { getUserInfo } from '../../utils/auth.js'
 import { setupThemeListener, getThemeClass } from '../../utils/theme.js'
 
 export default {
@@ -136,7 +145,10 @@ export default {
       return this.cartList.reduce((sum, item) => sum + item.quantity, 0)
     },
     totalCartPrice() {
-      const price = this.cartList.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      const price = this.cartList.reduce((sum, item) => {
+        const p = item.productPrice || item.price || 0
+        return sum + (p * item.quantity)
+      }, 0)
       return price.toFixed(1)
     }
   },
@@ -145,6 +157,7 @@ export default {
   },
   onShow() {
     this.loadProducts()
+    this.loadCart()
   },
   methods: {
     async loadProducts() {
@@ -153,44 +166,58 @@ export default {
         this.products = res.data
       }
     },
+    async loadCart() {
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      const res = await getCartListApi(userId)
+      if (res && res.data) {
+        this.cartList = res.data
+      }
+    },
     selectCategory(catName) {
       this.selectedCategory = catName
       this.loadProducts()
     },
 
     // 加入购物车逻辑
-    addToCart(item) {
-      const existIdx = this.cartList.findIndex(c => c.id === item.id)
-      if (existIdx > -1) {
-        this.cartList[existIdx].quantity += 1
-      } else {
-        this.cartList.push({
-          ...item,
-          quantity: 1
-        })
+    async addToCart(item) {
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      
+      uni.showLoading({ title: '正在加入...' })
+      const res = await addToCartApi(item.id, 1, userId)
+      uni.hideLoading()
+
+      if (res && res.code === 200) {
+        uni.showToast({ title: '已加入购物车', icon: 'success' })
+        this.loadCart()
       }
-      uni.showToast({
-        title: `已加入购物车`,
-        icon: 'success',
-        duration: 1500
-      })
     },
 
-    // 购物车数量变更与删除
-    increaseQty(index) {
-      this.cartList[index].quantity += 1
+    async increaseQty(cItem, index) {
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      const newQty = cItem.quantity + 1
+      cItem.quantity = newQty
+      await updateCartQuantityApi(cItem.id, newQty, userId)
     },
-    decreaseQty(index) {
-      if (this.cartList[index].quantity > 1) {
-        this.cartList[index].quantity -= 1
+    async decreaseQty(cItem, index) {
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      if (cItem.quantity > 1) {
+        const newQty = cItem.quantity - 1
+        cItem.quantity = newQty
+        await updateCartQuantityApi(cItem.id, newQty, userId)
       } else {
-        this.removeCartItem(index)
+        this.removeCartItem(cItem, index)
       }
     },
-    removeCartItem(index) {
-      const item = this.cartList[index]
+    async removeCartItem(cItem, index) {
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      await deleteCartItemApi(cItem.id, userId)
       this.cartList.splice(index, 1)
-      uni.showToast({ title: `已移除 ${item.title}`, icon: 'none' })
+      uni.showToast({ title: '已移除商品', icon: 'none' })
       if (this.cartList.length === 0) {
         this.showCartDrawer = false
       }
@@ -199,8 +226,11 @@ export default {
       uni.showModal({
         title: '提示',
         content: '确定要清空购物车吗？',
-        success: (res) => {
+        success: async (res) => {
           if (res.confirm) {
+            for (const item of this.cartList) {
+              await deleteCartItemApi(item.id)
+            }
             this.cartList = []
             this.showCartDrawer = false
             uni.showToast({ title: '已清空购物车', icon: 'none' })
@@ -218,15 +248,32 @@ export default {
     closeCartDrawer() {
       this.showCartDrawer = false
     },
-    handleCheckout() {
+    async handleCheckout() {
       if (this.cartList.length === 0) return
-      uni.showLoading({ title: '发起微信支付...' })
-      setTimeout(() => {
-        uni.hideLoading()
-        uni.showToast({ title: '下单成功！我们将尽快安排发货', icon: 'success' })
+
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+
+      uni.showLoading({ title: '获取收货地址...' })
+      const addrRes = await getAddressesApi(userId)
+      uni.hideLoading()
+
+      let addressId = 1
+      if (addrRes && addrRes.data && addrRes.data.length > 0) {
+        addressId = addrRes.data[0].id
+      }
+
+      uni.showLoading({ title: '正在提交订单...' })
+      const orderRes = await createMallOrderApi(addressId, '请尽快发货，谢谢！', userId)
+      uni.hideLoading()
+
+      if (orderRes && orderRes.code === 200) {
+        uni.showToast({ title: '实物商品订单提交成功！', icon: 'success', duration: 2500 })
         this.cartList = []
         this.showCartDrawer = false
-      }, 1000)
+      } else {
+        uni.showToast({ title: (orderRes && orderRes.msg) || '订单创建失败', icon: 'none' })
+      }
     }
   }
 }

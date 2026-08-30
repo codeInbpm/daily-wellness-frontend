@@ -2,12 +2,18 @@
   <view class="container">
     <!-- 头部 AI 智伴名片 -->
     <view class="ai-header-card">
-      <view class="avatar-box">
-        <text class="avatar-icon">🤖</text>
+      <view class="header-left">
+        <view class="avatar-box">
+          <text class="avatar-icon">🤖</text>
+        </view>
+        <view class="header-info">
+          <text class="ai-name">每日养生 AI 智伴</text>
+          <text class="ai-status">🟢 结合体质与时辰多轮调理</text>
+        </view>
       </view>
-      <view class="header-info">
-        <text class="ai-name">每日养生 AI 智伴</text>
-        <text class="ai-status">🟢 结合您的体质与当下时辰在线调理</text>
+      <view class="history-btn" @click="openHistoryDrawer">
+        <text class="btn-icon">📜</text>
+        <text class="btn-text">历史咨询</text>
       </view>
     </view>
 
@@ -22,11 +28,11 @@
         </view>
       </view>
 
-      <!-- AI 思考中指示 -->
+      <!-- AI 思考中/打字中指示 -->
       <view v-if="loading" class="message-item assistant">
         <view class="msg-avatar"><text>🤖</text></view>
         <view class="msg-bubble loading-bubble">
-          <text class="loading-dots">AI 智伴思考中...</text>
+          <text class="loading-dots">AI 智伴推演中...</text>
         </view>
       </view>
     </scroll-view>
@@ -48,17 +54,46 @@
       <input 
         v-model="inputMsg" 
         class="chat-input" 
-        placeholder="咨询 AI 智伴（如：熬夜后怎么调理？）"
+        placeholder="咨询 AI 智伴（如：湿热体质怎么吃？）"
         confirm-type="send"
         @confirm="sendMessage"
       />
       <button class="btn-send" @click="sendMessage">发送</button>
     </view>
+
+    <!-- 历史咨询记录抽屉弹窗 -->
+    <view v-if="showHistoryModal" class="history-modal-mask" @click="closeHistoryDrawer">
+      <view class="history-modal-card" @click.stop>
+        <view class="history-header">
+          <text class="history-title">📜 历史养生咨询归档</text>
+          <text class="history-close" @click="closeHistoryDrawer">✕</text>
+        </view>
+        <scroll-view class="history-scroll" scroll-y>
+          <view v-if="historyList.length === 0" class="empty-history">
+            <text>暂无历史咨询记录</text>
+          </view>
+          <view 
+            v-for="item in historyList" 
+            :key="item.id" 
+            class="history-item"
+            @click="loadHistoryDetail(item)"
+          >
+            <view class="item-top">
+              <text class="item-topic">❓ {{ item.topic }}</text>
+              <text class="item-delete" @click.stop="deleteHistory(item.id)">🗑️</text>
+            </view>
+            <text class="item-reply">💡 {{ item.aiReply }}</text>
+            <text class="item-time">{{ formatTime(item.createdAt) }}</text>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
-import { chatWithAiApi } from '../../api/ai.js'
+import { askAiConsultApi, getConsultHistoryApi, deleteConsultHistoryApi } from '../../api/consult.js'
+import { getUserInfo } from '../../utils/auth.js'
 
 export default {
   data() {
@@ -66,7 +101,8 @@ export default {
       inputMsg: '',
       loading: false,
       scrollTop: 9999,
-      sessionId: 'session_' + Date.now(),
+      showHistoryModal: false,
+      historyList: [],
       quickChips: [
         '🌱 湿热体质平时吃什么？',
         '🌙 经常熬夜怎么护肝补水？',
@@ -98,21 +134,69 @@ export default {
       this.scrollToBottom()
 
       this.loading = true
-      const res = await chatWithAiApi(userText, this.sessionId)
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+
+      const res = await askAiConsultApi(userText, userId)
       this.loading = false
 
-      if (res && res.data) {
-        this.messageList.push({
-          role: 'assistant',
-          content: typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
-        })
+      if (res && res.code === 200 && res.data) {
+        const fullAnswer = typeof res.data === 'string' ? res.data : JSON.stringify(res.data)
+        
+        // 模拟打字机流式渐进呈现
+        const assistantMsg = { role: 'assistant', content: '' }
+        this.messageList.push(assistantMsg)
+        
+        let charIndex = 0
+        const timer = setInterval(() => {
+          if (charIndex < fullAnswer.length) {
+            assistantMsg.content += fullAnswer.charAt(charIndex)
+            charIndex++
+            this.scrollToBottom()
+          } else {
+            clearInterval(timer)
+          }
+        }, 30)
       } else {
         this.messageList.push({
           role: 'assistant',
-          content: '【养生AI智伴】：顺应自然时辰是养生的智慧，现在正是照顾身体的好时机。请放慢呼吸，补充一杯温水。'
+          content: '【养生AI智伴】：顺应自然时辰是养生的智慧。当前时刻宜放慢呼吸，小口补充温水，让身心回到当下平衡状态。'
         })
       }
       this.scrollToBottom()
+    },
+    async openHistoryDrawer() {
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      uni.showLoading({ title: '加载历史记录...' })
+      const res = await getConsultHistoryApi(userId, 1, 20)
+      uni.hideLoading()
+      if (res && res.data && res.data.records) {
+        this.historyList = res.data.records
+      }
+      this.showHistoryModal = true
+    },
+    closeHistoryDrawer() {
+      this.showHistoryModal = false
+    },
+    loadHistoryDetail(item) {
+      this.messageList.push({ role: 'user', content: item.topic })
+      this.messageList.push({ role: 'assistant', content: item.aiReply })
+      this.closeHistoryDrawer()
+      this.scrollToBottom()
+    },
+    async deleteHistory(id) {
+      const u = getUserInfo()
+      const userId = (u && u.id) ? u.id : 1
+      const res = await deleteConsultHistoryApi(id, userId)
+      if (res && res.code === 200) {
+        this.historyList = this.historyList.filter(h => h.id !== id)
+        uni.showToast({ title: '记录已删除', icon: 'success' })
+      }
+    },
+    formatTime(timeStr) {
+      if (!timeStr) return ''
+      return timeStr.replace('T', ' ').substring(0, 16)
     },
     scrollToBottom() {
       this.$nextTick(() => {
@@ -133,11 +217,17 @@ export default {
 
 .ai-header-card {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 20rpx;
   background: linear-gradient(135deg, #1E4D3B 0%, #2E6D56 100%);
   padding: 32rpx 36rpx;
   color: #FFFFFF;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
 }
 
 .avatar-box {
@@ -165,6 +255,16 @@ export default {
   opacity: 0.85;
   margin-top: 4rpx;
   display: block;
+}
+
+.history-btn {
+  background: rgba(255,255,255,0.18);
+  padding: 10rpx 20rpx;
+  border-radius: 30rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 24rpx;
 }
 
 .chat-list {
@@ -260,5 +360,97 @@ export default {
   padding: 0 32rpx;
   line-height: 76rpx;
   border: none;
+}
+
+/* 历史咨询弹窗 */
+.history-modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+  display: flex;
+  align-items: flex-end;
+}
+
+.history-modal-card {
+  width: 100%;
+  max-height: 70vh;
+  background: #FFFFFF;
+  border-top-left-radius: 36rpx;
+  border-top-right-radius: 36rpx;
+  padding: 36rpx;
+  box-sizing: border-box;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.history-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #2C3531;
+}
+
+.history-close {
+  font-size: 32rpx;
+  color: #999999;
+  padding: 8rpx;
+}
+
+.history-scroll {
+  max-height: 55vh;
+}
+
+.empty-history {
+  text-align: center;
+  padding: 60rpx 0;
+  color: #999999;
+  font-size: 26rpx;
+}
+
+.history-item {
+  background: #FAF8F3;
+  padding: 24rpx;
+  border-radius: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-topic {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #2E6D56;
+}
+
+.item-delete {
+  font-size: 28rpx;
+}
+
+.item-reply {
+  font-size: 26rpx;
+  color: #555555;
+  margin-top: 12rpx;
+  display: block;
+  line-height: 1.5;
+}
+
+.item-time {
+  font-size: 20rpx;
+  color: #AAAAAA;
+  margin-top: 12rpx;
+  display: block;
+  text-align: right;
 }
 </style>

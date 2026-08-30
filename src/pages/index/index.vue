@@ -254,7 +254,7 @@
 </template>
 
 <script>
-import { getTodayHabitsApi, checkInApi } from '../../api/habit.js'
+import { getTodayHabitsApi, checkInApi, cancelCheckInApi } from '../../api/habit.js'
 import { uploadFileApi, deleteFileApi } from '../../api/common.js'
 import { getCurrentOrganClockApi, getRandomQuoteApi } from '../../api/content.js'
 import { getUserInfo, checkLogin } from '../../utils/auth.js'
@@ -403,24 +403,41 @@ export default {
     async toggleCheckIn(item) {
       if (!checkLogin()) return
 
-      item.checked = !item.checked
-      if (item.checked) {
-        this.completedCount++
-        item.currentStreak++
-      } else {
-        this.completedCount = Math.max(0, this.completedCount - 1)
-        item.currentStreak = Math.max(0, item.currentStreak - 1)
-      }
-      this.progressPercent = this.totalCount > 0 ? Math.round((this.completedCount * 100) / this.totalCount) : 0
-      
-      const streaks = this.habits.map(h => h.currentStreak || 0)
-      this.maxStreak = streaks.length > 0 ? Math.max(...streaks) : 0
-
       const u = getUserInfo()
       const userId = (u && u.id) ? u.id : 1
-      const res = await checkInApi(userId, item.habitId)
-      if (res && res.data && res.data.currentStreak !== undefined) {
-        item.currentStreak = res.data.currentStreak
+
+      // 如果当前是已打卡状态，点击则执行取消打卡（带取消备注）
+      if (item.checked) {
+        uni.showModal({
+          title: '取消打卡确认',
+          editable: true,
+          placeholderText: '请输入取消打卡原因 (选填)',
+          confirmText: '确认取消',
+          cancelText: '保持打卡',
+          success: async (res) => {
+            if (res.confirm) {
+              const cancelRemark = res.content ? res.content.trim() : '取消打卡'
+              uni.showLoading({ title: '正在取消...' })
+              const apiRes = await cancelCheckInApi(userId, item.habitId, cancelRemark)
+              uni.hideLoading()
+              if (apiRes && apiRes.code === 200) {
+                item.checked = false
+                uni.showToast({ title: '已成功取消打卡', icon: 'success' })
+                this.loadTodayData()
+              }
+            }
+          }
+        })
+      } else {
+        // 执行打卡
+        item.checked = true
+        uni.showLoading({ title: '打卡中...' })
+        const res = await checkInApi(userId, item.habitId)
+        uni.hideLoading()
+        if (res && res.code === 200) {
+          uni.showToast({ title: '打卡成功！', icon: 'success' })
+          this.loadTodayData()
+        }
       }
     },
     openMediaModal(item) {

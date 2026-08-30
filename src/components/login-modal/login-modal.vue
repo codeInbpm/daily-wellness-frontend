@@ -109,7 +109,7 @@
 
 <script>
 import { wxLoginApi, sendSmsCodeApi, bindPhoneApi } from '../../api/auth.js'
-import { saveAuthData, getUserInfo } from '../../utils/auth.js'
+import { saveAuthData, getUserInfo, isLoggedIn } from '../../utils/auth.js'
 import { saveSubscribeStatusApi, SUBSCRIBE_TEMPLATE_ID } from '../../api/subscribe.js'
 
 export default {
@@ -128,6 +128,10 @@ export default {
   },
   mounted() {
     uni.$on('show_login_modal', () => {
+      if (isLoggedIn()) {
+        this.visible = false
+        return
+      }
       const u = getUserInfo()
       this.isWxLoggedIn = !!u
       this.loginMode = 'wx'

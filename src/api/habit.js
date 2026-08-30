@@ -10,12 +10,22 @@ export function getTodayHabitsApi(userId = 1) {
 }
 
 /**
- * 一键打卡 / 取消打卡 (支持传入心得与照片/视频媒体)
+ * 一键打卡 / 取消打卡 (支持心得、媒体与取消打卡备注)
  */
-export function checkInApi(userId, habitId, remark = '', mediaUrl = '', mediaType = 'none') {
+export function checkInApi(userId, habitId, remark = '', mediaUrl = '', mediaType = 'none', cancelRemark = '') {
   return request('/habit/check-in', {
     method: 'POST',
-    data: { userId, habitId, remark, mediaUrl, mediaType }
+    data: { userId, habitId, remark, mediaUrl, mediaType, cancelRemark }
+  })
+}
+
+/**
+ * 专属取消打卡接口 (带取消原因说明)
+ */
+export function cancelCheckInApi(userId, habitId, cancelRemark = '取消打卡') {
+  return request('/habit/cancel', {
+    method: 'POST',
+    data: { userId, habitId, cancelRemark }
   })
 }
 
@@ -39,7 +49,7 @@ export function getCalendarRecordsApi(userId = 1, month) {
 }
 
 /**
- * 获取某单日完成的具体打卡记录明细 (含照片/视频与心得)
+ * 获取某单日完成的具体打卡记录明细
  */
 export function getDayCheckInDetailApi(userId = 1, date) {
   return request(`/habit/day-detail?userId=${userId}&date=${date}`, {
